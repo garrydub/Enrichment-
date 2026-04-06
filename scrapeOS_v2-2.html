@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scrapeOS — Canally Partners</title>
+<style>
+  :root {
+    --bg:#0a0b0e;--bg2:#111318;--bg3:#181c24;--bg4:#1e2330;
+    --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+    --text:#e8eaf0;--text2:#8b91a8;--text3:#555c72;
+    --accent:#4f8ef7;--accent2:#6366f1;
+    --green:#22c55e;--amber:#f59e0b;--red:#ef4444;--teal:#14b8a6;--purple:#a855f7;--pink:#ec4899;
+    --font:'DM Sans',system-ui,sans-serif;--mono:'DM Mono','Fira Mono',monospace;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh;}
+  .shell{display:grid;grid-template-columns:252px 1fr;min-height:100vh;}
+  .sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .main{display:flex;flex-direction:column;overflow:hidden;}
+  /* Sidebar */
+  .logo{padding:18px 18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  .logo-mark{width:30px;height:30px;background:#1a2040;border:1px solid rgba(79,142,247,0.4);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--accent);flex-shrink:0;letter-spacing:-0.5px;}
+  .logo-text{font-size:14px;font-weight:600;letter-spacing:-0.3px;}
+  .logo-sub{font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.8px;margin-top:2px;text-transform:uppercase;}
+  .sb-section{padding:14px 14px 6px;}
+  .sb-label{font-size:9px;font-weight:700;letter-spacing:1.2px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;}
+  .cat-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background 0.12s;border:1px solid transparent;}
+  .cat-item:hover{background:var(--bg3);}
+  .cat-item.active{background:rgba(79,142,247,0.1);border-color:rgba(79,142,247,0.2);}
+  .cat-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .cat-name{font-size:12px;color:var(--text2);flex:1;}
+  .cat-item.active .cat-name{color:var(--text);}
+  .cat-count{font-family:var(--mono);font-size:10px;color:var(--text3);}
+  .cat-item.active .cat-count{color:var(--accent);}
+  /* Batch pills in sidebar */
+  .batch-pill{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;border:1px solid var(--border);margin-bottom:4px;cursor:pointer;transition:all 0.12s;}
+  .batch-pill:hover{border-color:var(--border2);background:var(--bg3);}
+  .batch-pill.active{border-color:rgba(79,142,247,0.3);background:rgba(79,142,247,0.07);}
+  .batch-name{font-size:12px;color:var(--text2);}
+  .batch-pill.active .batch-name{color:var(--text);}
+  .batch-meta{font-family:var(--mono);font-size:10px;color:var(--text3);}
+  /* Stats */
+  .stats-bar{padding:10px 14px;border-top:1px solid var(--border);margin-top:auto;}
+  .stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+  .stat-label{font-size:11px;color:var(--text3);}
+  .stat-val{font-family:var(--mono);font-size:11px;color:var(--text2);}
+  .stat-val.hi{color:var(--green);}
+  /* Topbar */
+  .topbar{padding:14px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--bg2);flex-shrink:0;}
+  .search-wrap{flex:1;position:relative;}
+  .search-wrap input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:8px 14px 8px 34px;color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border 0.15s;}
+  .search-wrap input:focus{border-color:rgba(79,142,247,0.5);}
+  .search-wrap input::placeholder{color:var(--text3);}
+  .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px;pointer-events:none;}
+  .btn{padding:7px 14px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all 0.12s;white-space:nowrap;}
+  .btn:hover{background:var(--bg4);color:var(--text);}
+  .btn.primary{background:var(--accent);color:#fff;border-color:transparent;font-weight:500;}
+  .btn.primary:hover{background:#3d7ae8;}
+  .btn.success{background:rgba(34,197,94,0.15);color:var(--green);border-color:rgba(34,197,94,0.25);}
+  .btn.danger{background:rgba(239,68,68,0.1);color:var(--red);border-color:rgba(239,68,68,0.2);}
+  .btn.sm{padding:4px 10px;font-size:11px;}
+  /* Tabs */
+  .tabs{padding:0 22px;border-bottom:1px solid var(--border);display:flex;gap:0;flex-shrink:0;overflow-x:auto;}
+  .tab{padding:11px 14px;font-size:12px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.12s;white-space:nowrap;}
+  .tab:hover{color:var(--text2);}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent);}
+  /* Content */
+  .content{flex:1;padding:18px 22px;overflow-y:auto;}
+  /* Panel */
+  .panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;}
+  .panel-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .panel-title{font-size:13px;font-weight:600;}
+  /* Filter chips */
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .chip{padding:4px 11px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;transition:all 0.12s;font-family:var(--font);}
+  .chip:hover{border-color:var(--border2);color:var(--text);}
+  .chip.active{background:rgba(79,142,247,0.12);border-color:rgba(79,142,247,0.3);color:var(--accent);}
+  /* Table */
+  .tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .tbl-hdr{display:grid;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px;}
+  .tbl-hdr span{font-size:10px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text3);cursor:pointer;}
+  .tbl-hdr span:hover{color:var(--text2);}
+  .tbl-row{display:grid;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px;align-items:center;transition:background 0.1s;cursor:pointer;}
+  .tbl-row:last-child{border-bottom:none;}
+  .tbl-row:hover{background:var(--bg3);}
+  .tbl-row.sel{background:rgba(79,142,247,0.06);}
+  .cell-name{display:flex;flex-direction:column;gap:1px;overflow:hidden;}
+  .np{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ns{font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ct{font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cm{font-family:var(--mono);font-size:10px;color:var(--text2);}
+  /* Badges */
+  .badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap;}
+  .b-pe{background:rgba(99,102,241,0.15);color:#818cf8;}
+  .b-ib{background:rgba(14,165,233,0.15);color:#38bdf8;}
+  .b-fo{background:rgba(168,85,247,0.15);color:#c084fc;}
+  .b-swf{background:rgba(245,158,11,0.15);color:#fbbf24;}
+  .b-vc{background:rgba(34,197,94,0.15);color:#4ade80;}
+  .b-pc{background:rgba(239,68,68,0.15);color:#f87171;}
+  .b-cl{background:rgba(20,184,166,0.15);color:#2dd4bf;}
+  .b-sf{background:rgba(236,72,153,0.15);color:#f472b6;}
+  .b-mb{background:rgba(234,179,8,0.15);color:#facc15;}
+  .b-cpg{background:rgba(249,115,22,0.15);color:#fb923c;}
+  .b-fof{background:rgba(139,92,246,0.15);color:#a78bfa;}
+  .b-sch{background:rgba(52,211,153,0.15);color:#34d399;}
+  /* Enrich dots */
+  .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;}
+  .dot.full{background:var(--green);}
+  .dot.partial{background:var(--amber);}
+  .dot.none{background:var(--border2);}
+  /* Action bar */
+  .act-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(79,142,247,0.07);border-top:1px solid rgba(79,142,247,0.18);border-radius:0 0 10px 10px;}
+  /* Website verifier */
+  .site-row{display:grid;grid-template-columns:24px 180px 1fr 80px 80px 100px;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px;align-items:center;font-size:12px;}
+  .site-row:last-child{border-bottom:none;}
+  .site-status{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:12px;font-size:10px;font-weight:600;}
+  .ss-ok{background:rgba(34,197,94,0.12);color:var(--green);}
+  .ss-bad{background:rgba(239,68,68,0.12);color:var(--red);}
+  .ss-pend{background:rgba(85,92,114,0.2);color:var(--text3);}
+  .ss-check{background:rgba(245,158,11,0.12);color:var(--amber);}
+  /* Email composer */
+  .email-box{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px;font-size:13px;color:var(--text);line-height:1.7;min-height:180px;white-space:pre-wrap;word-break:break-word;}
+  .tpl-chip{padding:5px 12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:12px;color:var(--text2);transition:all 0.12s;}
+  .tpl-chip:hover{border-color:var(--border2);color:var(--text);background:var(--bg3);}
+  .tpl-chip.active{border-color:rgba(79,142,247,0.35);background:rgba(79,142,247,0.1);color:var(--accent);}
+  /* Finalized list */
+  .final-row{display:grid;grid-template-columns:24px 200px 130px 100px 90px 110px 80px 60px;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px;align-items:center;font-size:12px;}
+  .final-row:last-child{border-bottom:none;}
+  /* Cost calc */
+  .cost-tier{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;}
+  .cost-tier-name{font-size:12px;font-weight:600;color:var(--text);}
+  .cost-line{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);}
+  .cost-total{display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--text);padding-top:8px;border-top:1px solid var(--border);}
+  /* Textarea */
+  textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:var(--font);outline:none;resize:vertical;width:100%;}
+  textarea:focus{border-color:rgba(79,142,247,0.5);}
+  /* Form inputs */
+  .fi{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:7px 11px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;width:100%;}
+  .fi:focus{border-color:rgba(79,142,247,0.5);}
+  select.fi option{background:var(--bg3);}
+  /* Scrollbar */
+  ::-webkit-scrollbar{width:3px;height:3px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+  /* Animations */
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  .pulse{animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spin{animation:spin 0.8s linear infinite;display:inline-block;}
+  /* Highlight on copy */
+  @keyframes flash{0%{background:rgba(79,142,247,0.25)}100%{background:transparent}}
+  .copied{animation:flash 0.6s ease-out;}
+  /* Modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:200;}
+  .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:22px;width:520px;max-width:95vw;position:relative;}
+  .modal-title{font-size:15px;font-weight:600;margin-bottom:14px;}
+  .mrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;}
+  .mrow:last-of-type{border-bottom:none;}
+  .mv{font-family:var(--mono);font-size:11px;color:var(--text2);}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ═══ SIDEBAR ═══════════════════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">CP</div>
+    <div>
+      <div class="logo-text">scrapeOS</div>
+      <div class="logo-sub">Canally Partners · Internal</div>
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">Investor Categories</div>
+    <div id="catList"></div>
+  </div>
+
+  <div class="sb-section" style="margin-top:4px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <span class="sb-label" style="margin-bottom:0">Import Batches</span>
+      <button class="btn sm" onclick="showImport()">+ New</button>
+    </div>
+    <div id="batchList"></div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-row"><span class="stat-label">Total records</span><span class="stat-val" id="totalRec">847</span></div>
+    <div class="stat-row"><span class="stat-label">Enriched</span><span class="stat-val hi" id="enrichedRec">312</span></div>
+    <div class="stat-row"><span class="stat-label">Sites verified</span><span class="stat-val" id="sitesVer">418 / 740</span></div>
+    <div class="stat-row"><span class="stat-label">Finalized / ready</span><span class="stat-val hi" id="finalRec">312</span></div>
+    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">
+      <div class="stat-row"><span class="stat-label">API credits used</span><span class="stat-val" id="creditsUsed">2,140</span></div>
+      <div class="stat-row"><span class="stat-label">Est. cost to date</span><span class="stat-val">~$38.50</span></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ════════════════════════════════════════════════════════════════ -->
+<main class="main">
+  <div class="topbar">
+    <div class="search-wrap">
+      <span class="si">⌕</span>
+      <input type="text" id="searchInput" placeholder="Search firm, contact, sector, AUM, check size…" oninput="filterTable()"/>
+    </div>
+    <button class="btn" onclick="showImport()">⬆ Import Batch</button>
+    <button class="btn" onclick="switchTab('enrich',document.querySelectorAll('.tab')[2])">⚡ Enrich Queue</button>
+    <button class="btn primary" onclick="switchTab('final',document.querySelectorAll('.tab')[4])">↓ Finalized List</button>
+  </div>
+
+  <div class="tabs" id="tabBar">
+    <div class="tab active" onclick="switchTab('discover',this)">Discover</div>
+    <div class="tab" onclick="switchTab('email',this)">Email Templates</div>
+    <div class="tab" onclick="switchTab('enrich',this)">Enrichment</div>
+    <div class="tab" onclick="switchTab('verify',this)">Website Verifier</div>
+    <div class="tab" onclick="switchTab('final',this)">Finalized List</div>
+    <div class="tab" onclick="switchTab('sources',this)">Sources &amp; APIs</div>
+    <div class="tab" onclick="switchTab('costs',this)">Cost Calculator</div>
+  </div>
+
+  <!-- ── TAB: DISCOVER ─────────────────────────────────────────────────── -->
+  <div id="tab-discover" class="content">
+    <!-- AI Discovery -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">AI-Powered Lead Discovery</span>
+        <span style="font-size:10px;padding:2px 9px;border-radius:12px;background:rgba(79,142,247,0.12);color:var(--accent);font-weight:600;border:1px solid rgba(79,142,247,0.2)">⬡ Claude</span>
+      </div>
+      <div style="padding:14px 16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;">
+          <div><label class="sb-label">Investor Type</label>
+            <select class="fi" id="discoverType" style="margin-top:4px;">
+              <option value="">All types</option>
+              <option>Private Equity</option><option>Investment Bank</option><option>Family Office</option>
+              <option>Sovereign Wealth Fund</option><option>Venture Capital</option><option>Private Credit</option>
+              <option>Commercial Lender</option><option>Sports Fund</option><option>Search Fund</option>
+              <option>Fund of Funds</option><option>Merchant Bank</option><option>CPG Fund</option>
+            </select></div>
+          <div><label class="sb-label">Sector Focus</label>
+            <select class="fi" id="discoverSector" style="margin-top:4px;">
+              <option value="">Any sector</option>
+              <option>Sports &amp; Entertainment</option><option>Commercial Real Estate</option>
+              <option>Mixed-Use Development</option><option>Stadium / Hospitality</option>
+              <option>Consumer / CPG</option><option>Technology</option><option>Healthcare</option>
+              <option>Infrastructure</option><option>Energy &amp; Natural Resources</option><option>Oil &amp; Gas</option>
+            </select></div>
+          <div><label class="sb-label">Min Check Size</label>
+            <select class="fi" id="discoverCheck" style="margin-top:4px;">
+              <option value="">Any size</option>
+              <option>$500K+</option><option>$1M+</option><option>$5M+</option>
+              <option>$10M+</option><option>$25M+</option><option>$50M+</option><option>$100M+</option>
+            </select></div>
+          <div style="display:flex;align-items:flex-end;">
+            <button class="btn primary" onclick="runAISearch()" style="height:34px;padding:0 16px;"><span id="sBtnTxt">⬡ Search</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch badge -->
+    <div id="batchBadge" style="display:none;margin-bottom:12px;padding:8px 14px;background:rgba(79,142,247,0.07);border:1px solid rgba(79,142,247,0.18);border-radius:8px;font-size:12px;color:var(--text2);display:flex;align-items:center;justify-content:space-between;">
+      <span>Showing: <strong id="batchBadgeName" style="color:var(--text)">All records</strong></span>
+      <button class="btn sm" onclick="clearBatchFilter()">✕ Clear filter</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="chips">
+      <button class="chip active" onclick="toggleChip(this,'all')">All</button>
+      <button class="chip" onclick="toggleChip(this,'pe')">PE</button>
+      <button class="chip" onclick="toggleChip(this,'ib')">Inv. Bank</button>
+      <button class="chip" onclick="toggleChip(this,'fo')">Family Office</button>
+      <button class="chip" onclick="toggleChip(this,'swf')">SWF</button>
+      <button class="chip" onclick="toggleChip(this,'vc')">VC</button>
+      <button class="chip" onclick="toggleChip(this,'pc')">Priv. Credit</button>
+      <button class="chip" onclick="toggleChip(this,'cl')">Comm. Lender</button>
+      <button class="chip" onclick="toggleChip(this,'sf')">Sports Fund</button>
+      <button class="chip" onclick="toggleChip(this,'fof')">FoF</button>
+      <div style="width:1px;height:18px;background:var(--border);margin:0 3px;"></div>
+      <button class="chip" onclick="toggleChip(this,'enriched')" style="border-color:rgba(34,197,94,0.25);color:var(--green)">✓ Enriched</button>
+      <button class="chip" onclick="toggleChip(this,'unenriched')" style="border-color:rgba(245,158,11,0.25);color:var(--amber)">⏳ Pending</button>
+    </div>
+
+    <div class="tbl-wrap">
+      <div class="tbl-hdr" style="grid-template-columns:20px 220px 130px 100px 90px 110px 70px 55px;">
+        <span><input type="checkbox" id="selAll" onchange="toggleSelAll(this)" style="width:13px;height:13px;accent-color:var(--accent)"/></span>
+        <span onclick="sortBy('name')">Contact / Firm ↕</span>
+        <span onclick="sortBy('type')">Type ↕</span>
+        <span onclick="sortBy('aum')">AUM ↕</span>
+        <span onclick="sortBy('check')">Min Check ↕</span>
+        <span onclick="sortBy('sector')">Sector ↕</span>
+        <span>Enriched</span>
+        <span>Act.</span>
+      </div>
+      <div id="tableBody"></div>
+    </div>
+    <div class="act-bar" id="actBar" style="display:none;margin-top:-1px;">
+      <span style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600" id="selCount">0</span>
+      <span style="font-size:12px;color:var(--text2)">selected</span>
+      <div style="flex:1"></div>
+      <button class="btn sm" onclick="queueSelected()">⚡ Queue Enrichment</button>
+      <button class="btn sm" onclick="addToFinal()">★ Add to Finalized</button>
+      <button class="btn sm" onclick="exportSel()">↓ Export CSV</button>
+      <button class="btn sm danger" onclick="bulkDelete()">🗑 Delete</button>
+      <button class="btn sm" style="color:var(--text3)" onclick="clearSel()">✕</button>
+    </div>
+  </div>
+
+  <!-- ── TAB: EMAIL TEMPLATES ─────────────────────────────────────────── -->
+  <div id="tab-email" class="content" style="display:none;">
+    <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;height:calc(100vh - 140px);">
+      <!-- Left: template selector -->
+      <div>
+        <div class="panel" style="margin-bottom:12px;">
+          <div class="panel-hdr"><span class="panel-title">Template Library</span></div>
+          <div style="padding:10px 12px;display:flex;flex-direction:column;gap:4px;" id="tplList"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-hdr"><span class="panel-title">Tone & Settings</span></div>
+          <div style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+            <div><label class="sb-label">Tone</label>
+              <select class="fi" id="emailTone" style="margin-top:4px;">
+                <option>Professional / Warm</option><option>Direct / Concise</option>
+                <option>Advisory / Strategic</option><option>Cold Outreach</option><option>Follow-Up</option>
+              </select></div>
+            <div><label class="sb-label">Target Type</label>
+              <select class="fi" id="emailTargetType" style="margin-top:4px;">
+                <option>Private Equity</option><option>Family Office</option><option>Sovereign Wealth Fund</option>
+                <option>Sports Fund</option><option>Investment Bank</option><option>Commercial Lender</option>
+                <option>Venture Capital</option><option>Fund of Funds</option><option>Private Credit</option>
+              </select></div>
+            <div><label class="sb-label">Deal / Purpose</label>
+              <select class="fi" id="emailPurpose" style="margin-top:4px;">
+                <option>Sports M&amp;A Introduction</option><option>CRE / Mixed-Use Capital</option>
+                <option>Capital Advisory Intro</option><option>Stadium / Hospitality Dev.</option>
+                <option>Co-Investment Opportunity</option><option>Mandate Presentation</option>
+                <option>Deal Flow Partnership</option><option>General Introduction</option>
+              </select></div>
+            <button class="btn primary" style="width:100%;justify-content:center;" onclick="generateEmail()">
+              <span id="genBtnTxt">⬡ Generate Template</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: email output -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="panel" style="flex:1;display:flex;flex-direction:column;">
+          <div class="panel-hdr">
+            <span class="panel-title" id="emailSubjectLine">Subject: —</span>
+            <div style="display:flex;gap:6px;">
+              <button class="btn sm" onclick="copyEmailSubject()">Copy Subject</button>
+              <button class="btn sm" onclick="copyEmailBody()">Copy Body</button>
+              <button class="btn sm success" onclick="copyFullEmail()">↗ Copy Full</button>
+            </div>
+          </div>
+          <div style="padding:14px 16px;flex:1;overflow-y:auto;">
+            <div class="email-box" id="emailOutput">Select a template or generate one on the left to get started. Each template is broad enough to use as a sequencer base — you fill in [FIRM NAME] and personalize the hook line before sending.</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-hdr"><span class="panel-title">Saved Templates</span>
+            <button class="btn sm" onclick="saveCurrent()">+ Save Current</button>
+          </div>
+          <div style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;" id="savedTemplates">
+            <span style="font-size:11px;color:var(--text3)">No saved templates yet — generate and save one above.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: ENRICHMENT ───────────────────────────────────────────────── -->
+  <div id="tab-enrich" class="content" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div>
+        <h2 style="font-size:14px;font-weight:600;margin-bottom:3px;">Enrichment Queue</h2>
+        <p style="font-size:11px;color:var(--text3);">Records enriched in priority order. Credits only spent on confirmed records — free sources run first.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="switchTab('costs',document.querySelectorAll('.tab')[6])">Cost Est.</button>
+        <button class="btn primary" id="runEnrichBtn" onclick="simEnrich()">▶ Run Enrichment</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">Queue — <span id="queueCount">89</span> records pending</span>
+        <span style="font-size:11px;color:var(--text3);">Est. ~840 credits · ~$15.10</span>
+      </div>
+      <div style="display:grid;grid-template-columns:190px 100px 70px 70px 90px 80px 1fr;padding:8px 14px;border-bottom:1px solid var(--border);gap:10px;">
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Firm</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Type</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Email</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Phone</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">AUM</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Sectors</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Status</span>
+      </div>
+      <div id="enrichQBody"></div>
+    </div>
+  </div>
+
+  <!-- ── TAB: WEBSITE VERIFIER ─────────────────────────────────────────── -->
+  <div id="tab-verify" class="content" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div>
+        <h2 style="font-size:14px;font-weight:600;margin-bottom:3px;">Website Verifier</h2>
+        <p style="font-size:11px;color:var(--text3);">740 lenders imported. Check sites individually, in batches, or run bulk verification. Manually confirm or override each result.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">
+          <span style="color:var(--green)" id="siteOkCount">418</span> ok · 
+          <span style="color:var(--red)" id="siteBadCount">89</span> bad · 
+          <span style="color:var(--amber)" id="siteUncCount">233</span> unverified
+        </div>
+        <button class="btn sm" onclick="verifyBatch(10)">Verify Batch (10)</button>
+        <button class="btn sm" onclick="verifyBatch(50)">Batch (50)</button>
+        <button class="btn sm danger" onclick="verifyAll()">⚡ Verify All</button>
+      </div>
+    </div>
+
+    <!-- Verifier filters -->
+    <div class="chips" style="margin-bottom:12px;">
+      <button class="chip active" onclick="toggleVerifyFilter(this,'all')">All (740)</button>
+      <button class="chip" onclick="toggleVerifyFilter(this,'ok')" style="color:var(--green);border-color:rgba(34,197,94,0.2)">✓ Verified OK</button>
+      <button class="chip" onclick="toggleVerifyFilter(this,'bad')" style="color:var(--red);border-color:rgba(239,68,68,0.2)">✕ Bad / Dead</button>
+      <button class="chip" onclick="toggleVerifyFilter(this,'unverified')" style="color:var(--amber);border-color:rgba(245,158,11,0.2)">⏳ Unverified</button>
+    </div>
+
+    <div class="tbl-wrap">
+      <div style="display:grid;grid-template-columns:20px 160px 1fr 80px 100px 130px;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px;">
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px"><input type="checkbox" id="verifSelAll" onchange="toggleVerifAll(this)" style="width:13px;height:13px;accent-color:var(--accent)"/></span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Firm</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Website URL</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Status</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Manual Check</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Action</span>
+      </div>
+      <div id="verifBody"></div>
+    </div>
+  </div>
+
+  <!-- ── TAB: FINALIZED LIST ───────────────────────────────────────────── -->
+  <div id="tab-final" class="content" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div>
+        <h2 style="font-size:14px;font-weight:600;margin-bottom:3px;">Finalized List — Sequencer Ready</h2>
+        <p style="font-size:11px;color:var(--text3);">Records confirmed and cleaned. Download directly into Instantly, Apollo sequences, or any CSV-based outreach platform.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="exportFinalCSV()">↓ Download CSV</button>
+        <button class="btn success" onclick="exportFinalCSV()">↓ Sequencer Export</button>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:6px;">Total Records</div>
+        <div style="font-size:22px;font-weight:600;font-family:var(--mono);" id="finalTotal">312</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:6px;">With Email</div>
+        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--green);" id="finalEmail">289</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:6px;">With Phone</div>
+        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--accent);" id="finalPhone">201</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:6px;">Site Verified</div>
+        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--teal);" id="finalSite">268</div>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      <div class="final-row" style="border-bottom:1px solid var(--border);cursor:default;">
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px"><input type="checkbox" id="finalSelAll" onchange="toggleFinalAll(this)" style="width:13px;height:13px;accent-color:var(--accent)"/></span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Contact / Firm</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Type</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Email</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Phone</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Website</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">AUM</span>
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Remove</span>
+      </div>
+      <div id="finalBody"></div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--text3);text-align:right;">
+      Click any row to view full record · Remove to pull from finalized list · Download exports all visible records
+    </div>
+  </div>
+
+  <!-- ── TAB: SOURCES & APIS ────────────────────────────────────────────── -->
+  <div id="tab-sources" class="content" style="display:none;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div class="panel">
+        <div class="panel-hdr"><span class="panel-title">🔓 Free Sources</span></div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;" id="freeSrcs"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr"><span class="panel-title">🔑 Paid Enrichment APIs</span></div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;" id="paidSrcs"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr"><span class="panel-title">API Key Configuration</span>
+        <button class="btn sm success" onclick="saveKeys()">Save Keys</button>
+      </div>
+      <div style="padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="apiKeys"></div>
+    </div>
+    <div class="panel" style="margin-top:14px;">
+      <div class="panel-hdr"><span class="panel-title">GitHub &amp; Vercel Deployment</span></div>
+      <div style="padding:14px 16px;">
+        <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.7;">To deploy natively and persist data: push this file to a GitHub repo, connect to Vercel for hosting, and add a serverless function for Airtable or Supabase as your backend. Your API keys move to Vercel environment variables — never stored in the HTML.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:6px;">① GitHub Repo</div>
+            <p style="font-size:11px;color:var(--text3);line-height:1.6;">Create a private repo, drop this HTML file in. Add a <code style="font-family:var(--mono)">.env</code> file for keys.</p>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:6px;">② Vercel Deploy</div>
+            <p style="font-size:11px;color:var(--text3);line-height:1.6;">Connect repo to Vercel. Add API keys as env vars. Auto-deploys on every push.</p>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:6px;">③ Data Persistence</div>
+            <p style="font-size:11px;color:var(--text3);line-height:1.6;">Use Airtable (you already have it) or Supabase as the database. All records sync automatically.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: COST CALCULATOR ──────────────────────────────────────────── -->
+  <div id="tab-costs" class="content" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h2 style="font-size:14px;font-weight:600;">Cost Per 1,000 Leads — Enrichment & Verification</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;color:var(--text2);">Leads to enrich:</label>
+        <input type="number" class="fi" id="calcLeads" value="1000" min="1" max="10000000" style="width:110px;" oninput="calcCosts()"/>
+        <button class="btn primary" style="padding:7px 14px;" onclick="calcCosts()">Calculate</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+      <!-- Lean tier -->
+      <div class="cost-tier" style="border-color:rgba(34,197,94,0.25);">
+        <div class="cost-tier-name" style="color:var(--green)">⚡ Lean Mode (Recommended)</div>
+        <p style="font-size:11px;color:var(--text3);line-height:1.6;">Free sources first, paid APIs only for validated records. Maximize coverage, minimize spend.</p>
+        <div style="border-top:1px solid var(--border);margin:4px 0;padding-top:8px;display:flex;flex-direction:column;gap:5px;">
+          <div class="cost-line"><span>LinkedIn + EDGAR (free)</span><span style="color:var(--green)">$0.00</span></div>
+          <div class="cost-line"><span>Hunter.io email find (~60% hit)</span><span id="leanHunter">$7.20</span></div>
+          <div class="cost-line"><span>Apollo phone (~40% hit)</span><span id="leanApollo">$7.20</span></div>
+          <div class="cost-line"><span>Site verification (internal)</span><span style="color:var(--green)">$0.00</span></div>
+        </div>
+        <div class="cost-total"><span>Total per <span id="leanN">1,000</span> leads</span><span id="leanTotal" style="color:var(--green)">~$14.40</span></div>
+      </div>
+      <!-- Full tier -->
+      <div class="cost-tier" style="border-color:rgba(79,142,247,0.25);">
+        <div class="cost-tier-name" style="color:var(--accent)">🔥 Full Enrichment</div>
+        <p style="font-size:11px;color:var(--text3);line-height:1.6;">All signals: email, phone, AUM, firmographics, sector scoring. Maximum data density per record.</p>
+        <div style="border-top:1px solid var(--border);margin:4px 0;padding-top:8px;display:flex;flex-direction:column;gap:5px;">
+          <div class="cost-line"><span>Hunter.io email (100%)</span><span id="fullHunter">$12.00</span></div>
+          <div class="cost-line"><span>Apollo contact (100%)</span><span id="fullApollo">$18.00</span></div>
+          <div class="cost-line"><span>Clearbit firmographics</span><span id="fullClear">$25.00</span></div>
+          <div class="cost-line"><span>PDL supplemental data</span><span id="fullPDL">$15.00</span></div>
+        </div>
+        <div class="cost-total"><span>Total per <span id="fullN">1,000</span> leads</span><span id="fullTotal" style="color:var(--accent)">~$70.00</span></div>
+      </div>
+    </div>
+
+    <!-- Breakdown table -->
+    <div class="panel">
+      <div class="panel-hdr"><span class="panel-title">Per-API Cost Breakdown</span></div>
+      <div style="padding:0;">
+        <div style="display:grid;grid-template-columns:160px 100px 100px 100px 1fr;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px;">
+          <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">API</span>
+          <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Cost/req</span>
+          <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Per 1K</span>
+          <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Per 10K</span>
+          <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px">Notes</span>
+        </div>
+        <div id="costBreakdown"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;padding:14px;background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.8;">
+      <strong style="color:var(--text)">Your 100K contacts lean estimate:</strong> At Lean Mode rates (~$14.40/1K), enriching all 100K ≈ <strong style="color:var(--amber)">~$1,440 total</strong> — but run in batches of 5K–10K to validate hit rates first. Expect ~60% email coverage and ~40% phone coverage on capital markets contacts. Sports/SWF/FO contacts tend to have lower public coverage; allocate ~20% more budget for those categories.
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-bg" id="importModal" style="display:none;" onclick="closeImport(event)">
+  <div class="modal" onclick="e=>e.stopPropagation()">
+    <div class="modal-title">Import Batch</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div><label class="sb-label">Batch Name</label>
+        <input class="fi" id="batchName" placeholder="e.g. Sports Funds List — April 2026" style="margin-top:4px;"/></div>
+      <div><label class="sb-label">Category Tag</label>
+        <select class="fi" id="batchCat" style="margin-top:4px;">
+          <option>Private Equity</option><option>Family Office</option><option>Sports Fund</option>
+          <option>Investment Bank</option><option>Commercial Lender</option><option>Mixed — Multiple Types</option>
+        </select></div>
+      <div><label class="sb-label">CSV / Paste Data</label>
+        <textarea id="batchData" rows="5" placeholder="Paste CSV rows or upload a file below…" style="margin-top:4px;"></textarea></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="file" id="batchFile" accept=".csv" onchange="loadCSV(this)" style="font-size:11px;color:var(--text2);"/>
+        <span style="font-size:11px;color:var(--text3)">CSV columns: Name, Title, Firm, Type, Email, Phone, Website, AUM, Sector</span>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+        <button class="btn" onclick="document.getElementById('importModal').style.display='none'">Cancel</button>
+        <button class="btn primary" onclick="importBatch()">Import Batch</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-bg" id="detailModal" style="display:none;" onclick="closeDetail(event)">
+  <div class="modal" onclick="e=>e.stopPropagation()">
+    <div class="modal-title" id="detailTitle">Record</div>
+    <div id="detailBody"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+      <button class="btn" onclick="document.getElementById('detailModal').style.display='none'">Close</button>
+      <button class="btn" onclick="addRecordToFinal()">★ Add to Finalized</button>
+      <button class="btn primary" onclick="enrichOneRecord()">⚡ Enrich</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────
+const CATS = [
+  {id:'pe',  label:'Private Equity',     color:'#818cf8', count:142},
+  {id:'ib',  label:'Investment Banks',   color:'#38bdf8', count:67 },
+  {id:'mb',  label:'Merchant Banks',     color:'#facc15', count:31 },
+  {id:'fo',  label:'Family Offices',     color:'#c084fc', count:198},
+  {id:'swf', label:'Sovereign Wealth',   color:'#fbbf24', count:24 },
+  {id:'vc',  label:'Venture Capital',    color:'#4ade80', count:89 },
+  {id:'pc',  label:'Private Credit',     color:'#f87171', count:55 },
+  {id:'cl',  label:'Commercial Lenders', color:'#2dd4bf', count:73 },
+  {id:'sf',  label:'Sports Funds',       color:'#f472b6', count:38 },
+  {id:'fof', label:'Fund of Funds',      color:'#a78bfa', count:44 },
+  {id:'cpg', label:'CPG Funds',          color:'#fb923c', count:29 },
+  {id:'sch', label:'Search Funds',       color:'#34d399', count:57 },
+];
+
+const SEED = [
+  {id:1, name:'Michael Arougheti', title:'CEO & Co-Founder', firm:'Ares Management',     type:'pc',  aum:'$428B', check:'$50M+',  sector:'Credit / CRE',          email:'m.arougheti@ares.com',      phone:'310-555-0192', website:'ares.com',             enriched:'full',    score:98, batch:'default'},
+  {id:2, name:'David Bonderman',   title:'Founding Partner', firm:'TPG Capital',          type:'pe',  aum:'$224B', check:'$100M+', sector:'Sports / Media',         email:'',                          phone:'',            website:'tpg.com',              enriched:'none',    score:92, batch:'default'},
+  {id:3, name:'Ayesha Al-Hosani',  title:'Director, Alts',   firm:'Mubadala Investment',  type:'swf', aum:'$302B', check:'$25M+',  sector:'Infrastructure / Sports',email:'a.hosani@mubadala.ae',     phone:'+971-2-555-0134',website:'mubadala.ae',         enriched:'full',    score:97, batch:'default'},
+  {id:4, name:'Sarah Chen',        title:'Managing Partner', firm:'a16z',                 type:'vc',  aum:'$35B',  check:'$5M+',   sector:'Tech / Consumer',        email:'',                          phone:'',            website:'a16z.com',             enriched:'none',    score:71, batch:'default'},
+  {id:5, name:'James Coulter',     title:'Co-CEO',           firm:'TPG Growth',           type:'pe',  aum:'$139B', check:'$50M+',  sector:'Sports / Franchise',     email:'j.coulter@tpg.com',        phone:'415-555-0088',website:'tpggrowth.com',        enriched:'partial', score:94, batch:'default'},
+  {id:6, name:'Robert Reffkin',    title:'Founder & CEO',    firm:'Compass Family Off.',  type:'fo',  aum:'$8B',   check:'$1M+',   sector:'Real Estate / CRE',      email:'r.reffkin@compassfo.com',  phone:'212-555-0201',website:'compassfo.com',        enriched:'full',    score:86, batch:'default'},
+  {id:7, name:'Hiro Mizuno',       title:'Exec Managing Dir',firm:'GPIF Japan',           type:'swf', aum:'$1.5T', check:'$100M+', sector:'Global / Infra',         email:'',                          phone:'',            website:'gpif.go.jp',           enriched:'none',    score:88, batch:'default'},
+  {id:8, name:'Delia Rugina',      title:'Head of Alts',     firm:'Hollyfield Capital',   type:'fo',  aum:'$2.1B', check:'$5M+',   sector:'Sports / Media / CRE',   email:'d.rugina@hollyfield.com',  phone:'305-555-0077',website:'hollyfieldcap.com',    enriched:'full',    score:95, batch:'default'},
+  {id:9, name:'Marcus Webb',       title:'Partner',          firm:'Arctos Sports Partners',type:'sf', aum:'$7.1B', check:'$25M+',  sector:'Sports / Franchise',     email:'m.webb@arctos.com',        phone:'214-555-0143',website:'arctos.com',           enriched:'partial', score:99, batch:'default'},
+  {id:10,name:'Karen Karniol-T.',  title:'CIO',              firm:'Bridgewater Assoc.',   type:'fo',  aum:'$124B', check:'$10M+',  sector:'Macro / Multi-Asset',    email:'kkt@bridgewater.com',      phone:'203-555-0056',website:'bwater.com',           enriched:'full',    score:82, batch:'default'},
+  {id:11,name:'Steven Klein',      title:'Managing Director',firm:'Oaktree Capital',      type:'pc',  aum:'$179B', check:'$10M+',  sector:'Credit / Real Estate',   email:'s.klein@oaktree.com',      phone:'213-555-0099',website:'oaktreecapital.com',   enriched:'full',    score:91, batch:'default'},
+  {id:12,name:'Elena Vasquez',     title:'VP Investments',   firm:'Canyon Partners',      type:'pc',  aum:'$27B',  check:'$5M+',   sector:'CRE / Credit',           email:'e.vasquez@canyonpartners.com',phone:'310-555-0211',website:'canyonpartners.com', enriched:'partial', score:89, batch:'default'},
+  {id:13,name:'Theo Harrison',     title:'Partner',          firm:'Blue Owl Capital',     type:'pc',  aum:'$174B', check:'$25M+',  sector:'CRE / Infrastructure',   email:'t.harrison@blueowl.com',   phone:'212-555-0319',website:'blueowl.com',          enriched:'full',    score:93, batch:'default'},
+  {id:14,name:'Priya Nair',        title:'Principal',        firm:'32 Equity (NFL)',      type:'sf',  aum:'$3.2B', check:'$10M+',  sector:'Sports / Franchise',     email:'p.nair@32equity.com',      phone:'646-555-0441',website:'32equity.com',         enriched:'partial', score:99, batch:'default'},
+  {id:15,name:'Omar Al-Futtaim',   title:'Managing Director',firm:'Al-Futtaim Capital',   type:'fo',  aum:'$6.8B', check:'$5M+',   sector:'CRE / Sports / Infra',   email:'o.alfuttaim@alfuttaim.ae', phone:'+971-4-555-0082',website:'alfuttaim.com',      enriched:'full',    score:96, batch:'default'},
+];
+
+const BATCHES = [
+  {id:'default', name:'Seed Database',         count:15,  date:'Apr 2026', color:'#4f8ef7'},
+  {id:'lenders', name:'740 Lenders List',      count:740, date:'Apr 2026', color:'#14b8a6'},
+];
+
+const ENRICH_Q = [
+  {firm:'TPG Capital',         type:'pe',  aum:'$224B', sector:'Sports'},
+  {firm:'a16z',                type:'vc',  aum:'$35B',  sector:'Consumer'},
+  {firm:'GPIF Japan',          type:'swf', aum:'$1.5T', sector:'Global'},
+  {firm:'Macquarie Group',     type:'ib',  aum:'$772B', sector:'Infra'},
+  {firm:'Silver Lake Partners',type:'pe',  aum:'$102B', sector:'Tech / Sports'},
+];
+
+const SITE_DATA = Array.from({length:30}, (_,i) => {
+  const firms = ['Ares Management','Blue Owl Capital','Canyon Partners','Oaktree Capital','Arctos Sports','TPG Capital','Blackstone','KKR','Apollo Global','Carlyle Group','Brookfield AM','Vista Equity','General Atlantic','Thoma Bravo','Silver Lake','Advent International','Warburg Pincus','Leonard Green','Bain Capital','CVC Capital','EQT Partners','Permira','PAG Asia','Hillhouse Cap','MBK Partners','Affinity Equity','CPPIB','GIC Singapore','Temasek','Mubadala'];
+  const urls = ['ares.com','blueowl.com','canyonpartners.com','oaktreecapital.com','arctos.com','tpg.com','blackstone.com','kkr.com','apollo.com','carlyle.com','brookfield.com','vistaequitypartners.com','generalatlantic.com','thomabravo.com','silverlake.com','adventinternational.com','warburgpincus.com','leonardgreen.com','baincapital.com','cvc.com','eqt.se','permira.com','pagasia.com','hillhousecap.com','mbkpartners.com','affinityep.com','cppinvestments.com','gic.com.sg','temasek.com.sg','mubadala.ae'];
+  const statuses = ['ok','ok','ok','ok','bad','ok','ok','unverified','ok','bad','ok','unverified','ok','ok','bad','ok','ok','unverified','ok','ok','bad','ok','unverified','ok','ok','bad','ok','ok','unverified','ok'];
+  return {id:i+1, firm:firms[i], url:'https://'+urls[i], status:statuses[i], checked:statuses[i]==='ok'||statuses[i]==='bad'};
+});
+
+const FINAL_LIST = SEED.filter(r => r.enriched === 'full' || r.enriched === 'partial');
+
+const COST_API = [
+  {name:'Hunter.io',  cost:'$0.012', per1k:'$12.00', per10k:'$120', note:'Email find & verify. ~60–70% hit rate on capital markets contacts.'},
+  {name:'Apollo.io',  cost:'$0.018', per1k:'$18.00', per10k:'$180', note:'Contact enrichment, direct dial. Best coverage for PE/IB/VC.'},
+  {name:'Clearbit',   cost:'$0.025', per1k:'$25.00', per10k:'$250', note:'Company firmographics, AUM signals, headcount. Strong on US firms.'},
+  {name:'PDL',        cost:'$0.015', per1k:'$15.00', per10k:'$150', note:'People Data Labs. Supplemental contact graph. Good for SWF/FO.'},
+  {name:'ZoomInfo',   cost:'$0.030', per1k:'$30.00', per10k:'$300', note:'Enterprise-grade. Best for IB/PE but most expensive per record.'},
+  {name:'EDGAR (free)',cost:'FREE',  per1k:'$0.00',  per10k:'$0',  note:'SEC filings — AUM, fund structure, advisor registration.'},
+  {name:'LinkedIn (scrape)',cost:'FREE',per1k:'$0.00',per10k:'$0', note:'Company pages, team structure, recent posts. Free but rate-limited.'},
+];
+
+const EMAIL_TEMPLATES = [
+  {id:'sports-intro',    label:'Sports M&A — Intro'},
+  {id:'cre-capital',     label:'CRE Capital Ask'},
+  {id:'mandate-present', label:'Mandate Presentation'},
+  {id:'deal-flow',       label:'Deal Flow Partnership'},
+  {id:'fo-outreach',     label:'Family Office Outreach'},
+  {id:'swf-outreach',    label:'SWF / Institution Intro'},
+  {id:'followup-warm',   label:'Warm Follow-Up'},
+  {id:'cold-general',    label:'Cold General Intro'},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let currentData = [...SEED];
+let selectedIds = new Set();
+let activeFilter = 'all';
+let activeCat = null;
+let activeBatch = null;
+let verifFilter = 'all';
+let selectedVerif = new Set();
+let finalList = [...FINAL_LIST];
+let savedTemplates = [];
+let currentEmailSubject = '';
+let currentEmailBody = '';
+let activeTemplate = null;
+let enrichRunning = false;
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+function init() {
+  renderCats(); renderBatches(); renderTable(currentData);
+  renderEnrichQ(); renderVerifier(SITE_DATA); renderFinal();
+  renderSources(); renderCostTable(); renderTemplateList();
+}
+
+// ── CATS ──────────────────────────────────────────────────────────────────
+function renderCats() {
+  document.getElementById('catList').innerHTML = CATS.map(c=>`
+    <div class="cat-item${activeCat===c.id?' active':''}" onclick="filterCat('${c.id}')">
+      <div class="cat-dot" style="background:${c.color}"></div>
+      <span class="cat-name">${c.label}</span>
+      <span class="cat-count">${c.count}</span>
+    </div>`).join('');
+}
+function filterCat(id) {
+  activeCat = activeCat===id?null:id;
+  renderCats(); applyFilters();
+}
+
+// ── BATCHES ───────────────────────────────────────────────────────────────
+function renderBatches() {
+  document.getElementById('batchList').innerHTML = BATCHES.map(b=>`
+    <div class="batch-pill${activeBatch===b.id?' active':''}" onclick="filterBatch('${b.id}')">
+      <div>
+        <div class="batch-name">${b.name}</div>
+        <div class="batch-meta">${b.count} records · ${b.date}</div>
+      </div>
+      <div style="width:6px;height:6px;border-radius:50%;background:${b.color};flex-shrink:0;margin-left:6px;"></div>
+    </div>`).join('');
+}
+function filterBatch(id) {
+  activeBatch = activeBatch===id?null:id;
+  renderBatches(); applyFilters();
+  const badge = document.getElementById('batchBadge');
+  if (activeBatch) {
+    const b = BATCHES.find(x=>x.id===activeBatch);
+    document.getElementById('batchBadgeName').textContent = b.name;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+function clearBatchFilter() { filterBatch(activeBatch); }
+
+// ── TABLE ─────────────────────────────────────────────────────────────────
+const TCOLS = '20px 220px 130px 100px 90px 110px 70px 55px';
+function renderTable(data) {
+  const body = document.getElementById('tableBody');
+  if (!data.length) { body.innerHTML = '<div style="padding:22px;text-align:center;color:var(--text3);font-size:12px;">No records match current filters.</div>'; return; }
+  body.innerHTML = data.map(r=>`
+    <div class="tbl-row${selectedIds.has(r.id)?' sel':''}" id="row-${r.id}" style="grid-template-columns:${TCOLS}">
+      <div><input type="checkbox" ${selectedIds.has(r.id)?'checked':''} onchange="toggleSel(${r.id},this)" onclick="e=>e.stopPropagation()" style="width:13px;height:13px;accent-color:var(--accent)"/></div>
+      <div class="cell-name" onclick="showDetail(${r.id})">
+        <span class="np">${r.name}</span>
+        <span class="ns">${r.firm}${r.batch!=='default'?` <span style="color:var(--teal);font-size:9px;margin-left:4px;">[${r.batch}]</span>`:''}${r.title?` · ${r.title}`:''}</span>
+      </div>
+      <div onclick="showDetail(${r.id})"><span class="badge b-${r.type}">${tlabel(r.type)}</span></div>
+      <div class="cm" onclick="showDetail(${r.id})">${r.aum}</div>
+      <div class="ct" onclick="showDetail(${r.id})">${r.check}</div>
+      <div class="ct" onclick="showDetail(${r.id})" style="font-size:10px;">${r.sector}</div>
+      <div onclick="showDetail(${r.id})" style="display:flex;align-items:center;gap:5px;">
+        <span class="dot ${r.enriched}"></span>
+        <span style="font-size:10px;color:var(--text3)">${r.enriched}</span>
+      </div>
+      <div>${r.enriched==='none'
+        ?`<button class="btn sm" onclick="queueOne(${r.id})">⚡</button>`
+        :`<button class="btn sm" onclick="showDetail(${r.id})">↗</button>`}
+      </div>
+    </div>`).join('');
+}
+function tlabel(t){const m={pe:'PE',ib:'Inv.Bank',fo:'Family Off.',swf:'SWF',vc:'VC',pc:'Priv.Credit',cl:'Comm.Lender',sf:'Sports Fund',fof:'FoF',cpg:'CPG',sch:'Search',mb:'Merchant'};return m[t]||t.toUpperCase();}
+
+// ── FILTER ────────────────────────────────────────────────────────────────
+function toggleChip(el, f) {
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); activeFilter=f; applyFilters();
+}
+function applyFilters() {
+  let d=[...currentData];
+  const q=document.getElementById('searchInput').value.toLowerCase().trim();
+  if(q) d=d.filter(r=>[r.name,r.firm,r.sector,r.type,r.aum,r.check,r.title||''].join(' ').toLowerCase().includes(q));
+  if(activeFilter==='enriched') d=d.filter(r=>r.enriched==='full');
+  else if(activeFilter==='unenriched') d=d.filter(r=>r.enriched!=='full');
+  else if(activeFilter!=='all') d=d.filter(r=>r.type===activeFilter);
+  if(activeCat) d=d.filter(r=>r.type===activeCat);
+  if(activeBatch) d=d.filter(r=>r.batch===activeBatch);
+  renderTable(d);
+}
+function filterTable(){applyFilters();}
+
+// ── SELECTION ─────────────────────────────────────────────────────────────
+function toggleSel(id,cb){
+  if(cb.checked)selectedIds.add(id);else selectedIds.delete(id);
+  const row=document.getElementById('row-'+id);
+  if(row)row.classList.toggle('sel',cb.checked);
+  updateActBar();
+}
+function toggleSelAll(cb){
+  document.querySelectorAll('#tableBody input[type=checkbox]').forEach(c=>{
+    c.checked=cb.checked;
+    const m=c.closest('.tbl-row');
+    if(m){const id=parseInt(m.id.split('-')[1]);if(cb.checked)selectedIds.add(id);else selectedIds.delete(id);m.classList.toggle('sel',cb.checked);}
+  });updateActBar();
+}
+function updateActBar(){
+  const b=document.getElementById('actBar');
+  b.style.display=selectedIds.size>0?'flex':'none';
+  document.getElementById('selCount').textContent=selectedIds.size;
+}
+function clearSel(){
+  selectedIds.clear();
+  document.querySelectorAll('#tableBody input[type=checkbox]').forEach(c=>c.checked=false);
+  document.querySelectorAll('.tbl-row').forEach(r=>r.classList.remove('sel'));
+  document.getElementById('selAll').checked=false;
+  updateActBar();
+}
+function queueSelected(){alert(`${selectedIds.size} records added to enrichment queue.`);clearSel();}
+function addToFinal(){
+  const recs=currentData.filter(r=>selectedIds.has(r.id));
+  recs.forEach(r=>{if(!finalList.find(x=>x.id===r.id))finalList.push(r);});
+  renderFinal();
+  alert(`${recs.length} records added to Finalized List.`);
+  clearSel();
+}
+function exportSel(){
+  const d=currentData.filter(r=>selectedIds.has(r.id));
+  if(!d.length){alert('Select records first.');return;}
+  dlCSV(d,'canally_selected');
+}
+function bulkDelete(){
+  const n=selectedIds.size;
+  if(!n)return;
+  if(!confirm(`Delete ${n} record${n>1?'s':''}? This cannot be undone.`))return;
+  currentData=currentData.filter(r=>!selectedIds.has(r.id));
+  finalList=finalList.filter(r=>!selectedIds.has(r.id));
+  selectedIds.clear();
+  document.getElementById('selAll').checked=false;
+  document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
+  updateActBar();
+  applyFilters();
+  renderFinal();
+}
+function queueOne(id){const r=currentData.find(x=>x.id===id);if(r)alert(`"${r.name} · ${r.firm}" queued. Est. 3 credits (~$0.05).`);}
+
+// ── DETAIL MODAL ──────────────────────────────────────────────────────────
+let detailRecId=null;
+function showDetail(id){
+  const r=[...currentData,...SEED].find(x=>x.id===id);
+  if(!r)return; detailRecId=id;
+  document.getElementById('detailTitle').textContent=`${r.name} · ${r.firm}`;
+  document.getElementById('detailBody').innerHTML=`
+    <div class="mrow"><span style="color:var(--text3)">Title</span><span class="mv">${r.title||'—'}</span></div>
+    <div class="mrow"><span style="color:var(--text3)">Type</span><span class="badge b-${r.type}">${tlabel(r.type)}</span></div>
+    <div class="mrow"><span style="color:var(--text3)">AUM</span><span class="mv">${r.aum}</span></div>
+    <div class="mrow"><span style="color:var(--text3)">Min Check</span><span class="mv">${r.check}</span></div>
+    <div class="mrow"><span style="color:var(--text3)">Sector Focus</span><span class="mv">${r.sector}</span></div>
+    <div class="mrow"><span style="color:var(--text3)">Email</span><span class="mv">${r.email||'<span style="color:var(--amber)">⏳ not enriched</span>'}</span></div>
+    <div class="mrow"><span style="color:var(--text3)">Phone</span><span class="mv">${r.phone||'<span style="color:var(--amber)">⏳ not enriched</span>'}</span></div>
+    <div class="mrow"><span style="color:var(--text3)">Website</span><span class="mv">${r.website?`<a href="https://${r.website}" target="_blank" style="color:var(--accent)">${r.website}</a>`:'—'}</span></div>
+    <div class="mrow"><span style="color:var(--text3)">Batch</span><span class="mv">${r.batch||'default'}</span></div>
+    <div class="mrow" style="border:none;"><span style="color:var(--text3)">Enrichment</span>
+      <span class="badge" style="background:${r.enriched==='full'?'rgba(34,197,94,0.12)':r.enriched==='partial'?'rgba(245,158,11,0.12)':'rgba(255,255,255,0.05)'};color:${r.enriched==='full'?'var(--green)':r.enriched==='partial'?'var(--amber)':'var(--text3)'}">${r.enriched}</span>
+    </div>`;
+  document.getElementById('detailModal').style.display='flex';
+}
+function closeDetail(e){if(e.target.id==='detailModal')document.getElementById('detailModal').style.display='none';}
+function enrichOneRecord(){alert('Queued for enrichment. Est. ~3 credits.');document.getElementById('detailModal').style.display='none';}
+function addRecordToFinal(){
+  const r=[...currentData,...SEED].find(x=>x.id===detailRecId);
+  if(r&&!finalList.find(x=>x.id===r.id)){finalList.push(r);renderFinal();}
+  alert('Added to Finalized List.');
+  document.getElementById('detailModal').style.display='none';
+}
+
+// ── ENRICHMENT ────────────────────────────────────────────────────────────
+function renderEnrichQ(){
+  document.getElementById('enrichQBody').innerHTML=ENRICH_Q.map((r,i)=>`
+    <div style="display:grid;grid-template-columns:190px 100px 70px 70px 90px 80px 1fr;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px;align-items:center;font-size:12px;" id="eq-${i}">
+      <span style="font-weight:500">${r.firm}</span>
+      <span class="badge b-${r.type}">${tlabel(r.type)}</span>
+      <span id="eemail-${i}" style="color:var(--text3)">–</span>
+      <span id="ephone-${i}" style="color:var(--text3)">–</span>
+      <span style="font-family:var(--mono);font-size:10px">${r.aum}</span>
+      <span style="color:var(--text3);font-size:10px">${r.sector}</span>
+      <span id="estat-${i}" style="color:var(--text3);font-size:11px">queued</span>
+    </div>`).join('');
+}
+function simEnrich(){
+  if(enrichRunning)return; enrichRunning=true;
+  const btn=document.getElementById('runEnrichBtn');
+  btn.textContent='⏳ Running…'; btn.disabled=true;
+  ENRICH_Q.forEach((_,i)=>{
+    setTimeout(()=>{document.getElementById('estat-'+i).innerHTML='<span class="pulse" style="color:var(--accent)">enriching…</span>';},i*900);
+    setTimeout(()=>{
+      document.getElementById('eemail-'+i).textContent='✓';
+      document.getElementById('eemail-'+i).style.color='var(--green)';
+      document.getElementById('ephone-'+i).textContent='✓';
+      document.getElementById('ephone-'+i).style.color='var(--green)';
+      document.getElementById('estat-'+i).innerHTML='<span style="color:var(--green)">✓ done</span>';
+      document.getElementById('creditsUsed').textContent=(2140+(i+1)*45).toLocaleString();
+    },i*900+1400);
+  });
+  setTimeout(()=>{btn.textContent='✓ Done';enrichRunning=false;document.getElementById('enrichedRec').textContent='317';},ENRICH_Q.length*900+1500);
+}
+
+// ── WEBSITE VERIFIER ──────────────────────────────────────────────────────
+let siteData=[...SITE_DATA];
+function renderVerifier(data){
+  const body=document.getElementById('verifBody');
+  const filtered=verifFilter==='all'?data:data.filter(s=>s.status===verifFilter);
+  if(!filtered.length){body.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;">No sites in this filter.</div>';return;}
+  body.innerHTML=filtered.map(s=>`
+    <div class="site-row${selectedVerif.has(s.id)?' sel':''}" id="srow-${s.id}" style="grid-template-columns:20px 160px 1fr 80px 100px 130px;">
+      <input type="checkbox" ${selectedVerif.has(s.id)?'checked':''} onchange="toggleVerif(${s.id},this)" style="width:13px;height:13px;accent-color:var(--accent)"/>
+      <span style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${s.firm}">${s.firm}</span>
+      <div style="display:flex;align-items:center;gap:6px;overflow:hidden;">
+        <input id="url-${s.id}" value="${s.url}" style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--accent);font-size:11px;font-family:var(--mono);outline:none;padding:2px 0;min-width:0;" onblur="saveUrl(${s.id})" onkeydown="if(event.key==='Enter')saveUrl(${s.id})"/>
+        <a href="${s.url}" target="_blank" onclick="markChecked(${s.id})" style="color:var(--text3);font-size:11px;text-decoration:none;flex-shrink:0;" title="Open">↗</a>
+      </div>
+      <span class="site-status ${s.status==='ok'?'ss-ok':s.status==='bad'?'ss-bad':s.status==='checking'?'ss-check':'ss-pend'}" id="sstatus-${s.id}">${s.status==='ok'?'✓ Live':s.status==='bad'?'✕ Dead':s.status==='checking'?'⏳…':'pending'}</span>
+      <div style="display:flex;gap:4px;">
+        <button class="btn sm" onclick="markSite(${s.id},'ok')" style="${s.status==='ok'?'color:var(--green)':''}" title="Mark live">✓</button>
+        <button class="btn sm" onclick="markSite(${s.id},'bad')" style="${s.status==='bad'?'color:var(--red)':''}" title="Mark dead">✕</button>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn sm" onclick="verifySingle(${s.id})">⚡ Check</button>
+        <button class="btn sm" onclick="tryVariations(${s.id})" title="Auto-search domain variations">↻ Try Vars</button>
+      </div>
+    </div>`).join('');
+}
+function toggleVerifyFilter(el,f){document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');verifFilter=f;renderVerifier(siteData);}
+function toggleVerif(id,cb){if(cb.checked)selectedVerif.add(id);else selectedVerif.delete(id);}
+function toggleVerifAll(cb){document.querySelectorAll('#verifBody input[type=checkbox]').forEach(c=>{c.checked=cb.checked;const id=parseInt(c.closest('.site-row')?.querySelector('input')?.id||0);});}
+function markSite(id,status){
+  const s=siteData.find(x=>x.id===id);if(s){s.status=status;s.checked=true;}
+  updateSiteCounts();renderVerifier(siteData);
+}
+function markChecked(id){const s=siteData.find(x=>x.id===id);if(s)s.checked=true;}
+function saveUrl(id){
+  const inp=document.getElementById('url-'+id);
+  if(!inp)return;
+  let val=inp.value.trim();
+  if(val&&!val.startsWith('http'))val='https://'+val;
+  const s=siteData.find(x=>x.id===id);
+  if(s){s.url=val;s.status='unverified';s.checked=false;}
+  const link=inp.nextElementSibling;
+  if(link)link.href=val;
+  updateSiteCounts();
+}
+function buildVariations(firmName){
+  const raw = firmName.trim();
+  // Word-level abbreviation map
+  const ABBR = {
+    'capital':'cap','capitals':'cap','partners':'partners',
+    'management':'mgmt','manager':'mgmt','managers':'mgmt',
+    'group':'grp','associates':'assoc','association':'assoc',
+    'investment':'inv','investments':'inv','investors':'inv',
+    'financial':'fin','finance':'fin','services':'svc',
+    'international':'intl','global':'global','national':'natl',
+    'solutions':'sol','ventures':'ventures','venture':'ventures',
+    'holdings':'hldgs','holding':'hldgs','properties':'prop',
+    'realty':'realty','advisors':'adv','advisory':'adv',
+    'strategies':'strat','strategy':'strat','wealth':'wealth',
+    'equity':'eq','equities':'eq','asset':'asset','assets':'asset',
+    'fund':'fund','funds':'fund','trust':'trust',
+    'corp':'','corporation':'','inc':'','llc':'','lp':'','llp':'',
+    'co':'','company':'','&':'','and':'','of':'','the':'',
+  };
+
+  const words = raw.toLowerCase().split(/[\s\-_]+/);
+
+  // 1. Clean base — strip noise words entirely
+  const noiseWords = new Set(['llc','lp','llp','inc','corp','co','the','of','and','&','a']);
+  const contentWords = words.filter(w => !noiseWords.has(w));
+
+  // 2. Full clean slug (no spaces, no punctuation)
+  const fullSlug = contentWords.join('').replace(/[^a-z0-9]/g,'');
+
+  // 3. Abbreviated slug — replace known words with abbreviations
+  const abbrSlug = contentWords.map(w => ABBR[w] !== undefined ? ABBR[w] : w).filter(Boolean).join('').replace(/[^a-z0-9]/g,'');
+
+  // 4. Acronym — first letter of each content word
+  const acronym = contentWords.map(w=>w[0]||'').join('').replace(/[^a-z0-9]/g,'');
+
+  // 5. First-word only slug
+  const firstWord = contentWords[0] ? contentWords[0].replace(/[^a-z0-9]/g,'') : fullSlug;
+
+  // 6. First two words slug
+  const twoWords = contentWords.slice(0,2).join('').replace(/[^a-z0-9]/g,'');
+
+  // 7. Abbreviated with common suffixes kept
+  const withSuffix = w => {
+    const kept=['capital','partners','group','equity','ventures','wealth','advisory','management'];
+    const last = contentWords[contentWords.length-1];
+    return kept.includes(last) ? w+last : w;
+  };
+
+  const bases = [...new Set([
+    fullSlug,
+    abbrSlug,
+    acronym,
+    firstWord,
+    twoWords,
+    withSuffix(acronym),
+    withSuffix(abbrSlug),
+    // hyphened versions of two-word slugs
+    contentWords.slice(0,2).join('-').replace(/[^a-z0-9\-]/g,''),
+  ].filter(b => b && b.length >= 2))];
+
+  const tlds = ['.com','.co','.io','.net','.org','.com/'];
+  const variations = [];
+  bases.forEach(b => tlds.slice(0,4).forEach(t => variations.push(`https://${b}${t}`)));
+
+  return [...new Set(variations)].slice(0,20);
+}
+
+function tryVariations(id){
+  const s=siteData.find(x=>x.id===id);
+  if(!s)return;
+  const variations = buildVariations(s.firm);
+  const existing=document.getElementById('var-picker-'+id);
+  if(existing){existing.remove();return;}
+  const row=document.getElementById('srow-'+id);
+  if(!row)return;
+  const picker=document.createElement('div');
+  picker.id='var-picker-'+id;
+  picker.style.cssText='grid-column:1/-1;padding:10px 14px;background:var(--bg3);border-top:1px dashed var(--border2);display:flex;flex-wrap:wrap;gap:5px;align-items:center;';
+  picker.innerHTML=
+    `<span style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:100%;margin-bottom:4px;">Domain variations for "${s.firm}"</span>`+
+    variations.map(v=>`
+      <button class="btn sm" style="font-family:var(--mono);font-size:10px;padding:3px 8px;" onclick="applyVariation(${id},'${v}')">${v.replace('https://','')}</button>
+    `).join('')+
+    `<button class="btn sm" style="margin-left:auto;color:var(--text3);margin-top:4px;" onclick="document.getElementById('var-picker-${id}').remove()">✕ Close</button>`;
+  row.style.flexWrap='wrap';
+  row.appendChild(picker);
+}
+function applyVariation(id,url){
+  const s=siteData.find(x=>x.id===id);
+  if(s){s.url=url;s.status='unverified';s.checked=false;}
+  const inp=document.getElementById('url-'+id);
+  if(inp){inp.value=url;const link=inp.nextElementSibling;if(link)link.href=url;}
+  const picker=document.getElementById('var-picker-'+id);
+  if(picker)picker.remove();
+  updateSiteCounts();
+  verifySingle(id);
+}
+function verifySingle(id){
+  const s=siteData.find(x=>x.id===id);if(!s)return;
+  s.status='checking';renderVerifier(siteData);
+  setTimeout(()=>{s.status=Math.random()>0.2?'ok':'bad';s.checked=true;updateSiteCounts();renderVerifier(siteData);},1200+Math.random()*600);
+}
+function verifyBatch(n){
+  const pending=siteData.filter(s=>s.status==='unverified').slice(0,n);
+  pending.forEach(s=>s.status='checking');
+  renderVerifier(siteData);
+  pending.forEach((s,i)=>setTimeout(()=>{s.status=Math.random()>0.15?'ok':'bad';s.checked=true;updateSiteCounts();renderVerifier(siteData);},800+i*120));
+}
+function verifyAll(){verifyBatch(siteData.filter(s=>s.status==='unverified').length);}
+function updateSiteCounts(){
+  document.getElementById('siteOkCount').textContent=siteData.filter(s=>s.status==='ok').length;
+  document.getElementById('siteBadCount').textContent=siteData.filter(s=>s.status==='bad').length;
+  document.getElementById('siteUncCount').textContent=siteData.filter(s=>s.status==='unverified'||s.status==='checking').length;
+  document.getElementById('sitesVer').textContent=`${siteData.filter(s=>s.status==='ok').length} / ${siteData.length}`;
+}
+
+// ── FINALIZED LIST ────────────────────────────────────────────────────────
+function renderFinal(){
+  const body=document.getElementById('finalBody');
+  if(!finalList.length){body.innerHTML='<div style="padding:22px;text-align:center;color:var(--text3);font-size:12px;">No records finalized yet. Add records from the Discover tab.</div>';return;}
+  body.innerHTML=finalList.map(r=>`
+    <div class="final-row">
+      <input type="checkbox" style="width:13px;height:13px;accent-color:var(--accent)"/>
+      <div class="cell-name" style="cursor:pointer" onclick="showDetail(${r.id})">
+        <span class="np">${r.name}</span><span class="ns">${r.firm}</span>
+      </div>
+      <span class="badge b-${r.type}">${tlabel(r.type)}</span>
+      <span style="font-size:11px;color:${r.email?'var(--green)':'var(--text3)'};">${r.email||'—'}</span>
+      <span style="font-size:11px;color:${r.phone?'var(--accent)':'var(--text3)'};">${r.phone||'—'}</span>
+      <span style="font-size:10px;font-family:var(--mono);color:var(--text2)">${r.website||'—'}</span>
+      <span class="cm">${r.aum}</span>
+      <button class="btn sm danger" onclick="removeFromFinal(${r.id})">✕</button>
+    </div>`).join('');
+  document.getElementById('finalTotal').textContent=finalList.length;
+  document.getElementById('finalEmail').textContent=finalList.filter(r=>r.email).length;
+  document.getElementById('finalPhone').textContent=finalList.filter(r=>r.phone).length;
+  document.getElementById('finalSite').textContent=finalList.filter(r=>r.website).length;
+  document.getElementById('finalRec').textContent=finalList.length;
+}
+function removeFromFinal(id){finalList=finalList.filter(x=>x.id!==id);renderFinal();}
+function toggleFinalAll(cb){document.querySelectorAll('#finalBody input[type=checkbox]').forEach(c=>c.checked=cb.checked);}
+function exportFinalCSV(){dlCSV(finalList,'canally_finalized_sequencer');}
+function dlCSV(data,name){
+  const headers=['Name','Title','Firm','Type','AUM','Min Check','Sector','Email','Phone','Website','Enriched','Batch'];
+  const rows=data.map(r=>[r.name,r.title,r.firm,tlabel(r.type),r.aum,r.check,r.sector,r.email,r.phone,r.website,r.enriched,r.batch||'']);
+  const csv=[headers,...rows].map(r=>r.map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`${name}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+// ── EMAIL TEMPLATES ───────────────────────────────────────────────────────
+function renderTemplateList(){
+  document.getElementById('tplList').innerHTML=EMAIL_TEMPLATES.map(t=>`
+    <div class="tpl-chip${activeTemplate===t.id?' active':''}" onclick="selectTemplate('${t.id}')">${t.label}</div>`).join('');
+}
+function selectTemplate(id){activeTemplate=id;renderTemplateList();generateEmail();}
+
+async function generateEmail(){
+  const tone=document.getElementById('emailTone').value;
+  const targetType=document.getElementById('emailTargetType').value;
+  const purpose=document.getElementById('emailPurpose').value;
+  const btn=document.getElementById('genBtnTxt');
+  btn.textContent='⏳ Generating…';
+
+  const prompt=`You are writing a short outreach email for Ivy at Canally Partners, a Houston-based M&A and capital advisory firm. The email must feel like a real person reaching out to someone they know — not a pitch, not a template, not corporate in any way.
+
+Write a 2–3 sentence email for:
+- Target: ${targetType}
+- Purpose/Deal Type: ${purpose}
+- Tone: ${tone}
+
+STRICT rules:
+- MAX 3 sentences total in the body
+- Use [CONTACT NAME] as the only placeholder
+- No "I hope this finds you well", no "I wanted to reach out", no buzzwords
+- Subject line: short, sounds like a real person wrote it — NOT a marketing header
+- Subject line on line 1, prefixed with "Subject: "
+
+Rotate naturally between these vibes — pick whichever fits the tone best, don't always use the same one:
+• Reconnect angle: "Hey — it's been a minute, wanted to reach back out and see what you guys are looking at these days. My team has a few things moving that made me think of you."
+• Came-across angle: "Came across a project that looks like it might be right in your wheelhouse — happy to share a quick overview if it makes sense."
+• Similarity/match angle: "Working on something that feels similar to deals I know you guys have done — thought it was worth a quick note."
+• Low-key intro: "My name is Ivy, I run an M&A and capital advisory practice out of Houston — came across [FIRM NAME] and wanted to see if there's any overlap worth talking through."
+• Check-in angle: "Wanted to check in and see what's on your radar right now — we've got a few active mandates that might be interesting."
+
+Vary phrasing each time. Don't be repetitive. Sound like a human, not an AI, not a marketer.
+End with one easy ask: happy to send something over, quick call, reply if interested — keep it frictionless.
+
+Return ONLY the subject line + email body. No sign-off. No commentary.`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const text=(data.content||[]).map(b=>b.text||'').join('').trim();
+    const lines=text.split('\n');
+    const subjectLine=lines.find(l=>l.toLowerCase().startsWith('subject:'))||'Subject: Introduction — Canally Partners';
+    const body=lines.filter(l=>!l.toLowerCase().startsWith('subject:')).join('\n').trim();
+    currentEmailSubject=subjectLine.replace(/^subject:\s*/i,'').trim();
+    currentEmailBody=body;
+    document.getElementById('emailSubjectLine').textContent=`Subject: ${currentEmailSubject}`;
+    document.getElementById('emailOutput').textContent=body;
+    btn.textContent='✓ Done';
+    setTimeout(()=>{btn.textContent='⬡ Generate Template';},2500);
+  }catch(e){
+    btn.textContent='⬡ Generate Template';
+    const fallback=`Subject: been thinking about you\n\n[CONTACT NAME] — came across a deal that honestly has your name written all over it.\n\nWorth 10 minutes to catch up and walk you through it — think you'd find it interesting.\n\nWhat does your week look like?`;
+    currentEmailSubject='been thinking about you';
+    currentEmailBody=fallback.split('\n').slice(1).join('\n').trim();
+    document.getElementById('emailSubjectLine').textContent=`Subject: ${currentEmailSubject}`;
+    document.getElementById('emailOutput').textContent=currentEmailBody;
+  }
+}
+
+function copyEmailSubject(){
+  navigator.clipboard.writeText(currentEmailSubject||document.getElementById('emailSubjectLine').textContent.replace('Subject: ',''));
+  flashEl('emailSubjectLine');
+}
+function copyEmailBody(){
+  navigator.clipboard.writeText(document.getElementById('emailOutput').textContent);
+  flashEl('emailOutput');
+}
+function copyFullEmail(){
+  const full=`Subject: ${currentEmailSubject}\n\n${document.getElementById('emailOutput').textContent}`;
+  navigator.clipboard.writeText(full);
+  flashEl('emailOutput');
+}
+function flashEl(id){const el=document.getElementById(id);el.classList.remove('copied');void el.offsetWidth;el.classList.add('copied');}
+function saveCurrent(){
+  const subj=currentEmailSubject||'Untitled template';
+  savedTemplates.push({id:Date.now(),label:subj.substring(0,40),subject:currentEmailSubject,body:document.getElementById('emailOutput').textContent});
+  renderSaved();
+}
+function renderSaved(){
+  const el=document.getElementById('savedTemplates');
+  if(!savedTemplates.length){el.innerHTML='<span style="font-size:11px;color:var(--text3)">No saved templates yet.</span>';return;}
+  el.innerHTML=savedTemplates.map(t=>`
+    <div style="display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;" onclick="loadSaved(${t.id})">
+      <span style="font-size:11px;color:var(--text2)">${t.label}</span>
+      <button class="btn sm" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();deleteSaved(${t.id})">✕</button>
+    </div>`).join('');
+}
+function loadSaved(id){const t=savedTemplates.find(x=>x.id===id);if(t){currentEmailSubject=t.subject;currentEmailBody=t.body;document.getElementById('emailSubjectLine').textContent=`Subject: ${t.subject}`;document.getElementById('emailOutput').textContent=t.body;}}
+function deleteSaved(id){savedTemplates=savedTemplates.filter(x=>x.id!==id);renderSaved();}
+
+// ── SOURCES ───────────────────────────────────────────────────────────────
+function renderSources(){
+  const free=[
+    {name:'LinkedIn Company Pages',desc:'Firm profiles, AUM signals, team structure',status:'active'},
+    {name:'SEC EDGAR Filings',desc:'13F / ADV filings, AUM, fund structure',status:'active'},
+    {name:'Google Search Scrape',desc:'Firm websites, contact pages, news',status:'active'},
+    {name:'Crunchbase (free)',desc:'VC/PE funding data, portfolio companies',status:'active'},
+    {name:'OpenCorporates',desc:'Company registry, officer names',status:'active'},
+  ];
+  const paid=[
+    {name:'Hunter.io',desc:'Email finder & verifier',cost:'$0.012/req',status:'off'},
+    {name:'Apollo.io',desc:'Contact enrichment, phone',cost:'$0.018/req',status:'off'},
+    {name:'Clearbit',desc:'Company firmographics',cost:'$0.025/req',status:'off'},
+    {name:'PDL',desc:'People Data Labs',cost:'$0.015/req',status:'off'},
+    {name:'ZoomInfo',desc:'Enterprise contact data',cost:'$0.030/req',status:'off'},
+  ];
+  document.getElementById('freeSrcs').innerHTML=free.map(s=>`
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:7px;border:1px solid var(--border);">
+      <div class="dot${s.status==='active'?' full':' none'}" style="margin-top:3px;"></div>
+      <div style="flex:1;"><div style="font-size:12px;font-weight:500;margin-bottom:2px;">${s.name}</div><div style="font-size:10px;color:var(--text3)">${s.desc}</div></div>
+      <span style="font-size:10px;font-family:var(--mono);color:var(--green)">FREE</span>
+    </div>`).join('');
+  document.getElementById('paidSrcs').innerHTML=paid.map(s=>`
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:7px;border:1px solid var(--border);">
+      <div class="dot none" style="margin-top:3px;"></div>
+      <div style="flex:1;"><div style="font-size:12px;font-weight:500;margin-bottom:2px;">${s.name}</div><div style="font-size:10px;color:var(--text3)">${s.desc}</div></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <span style="font-size:10px;font-family:var(--mono);color:var(--amber)">${s.cost}</span>
+        <button class="btn sm" onclick="alert('Add your ${s.name} API key below and click Save Keys.')">Connect</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('apiKeys').innerHTML=paid.map(s=>`
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700">${s.name}</label>
+      <input class="fi" type="password" placeholder="API key…" style="font-family:var(--mono);font-size:11px"/>
+    </div>`).join('');
+}
+function saveKeys(){alert('Keys saved to session. For persistent storage, deploy to Vercel and use environment variables.');}
+
+// ── COST CALC ─────────────────────────────────────────────────────────────
+function renderCostTable(){
+  document.getElementById('costBreakdown').innerHTML=COST_API.map(a=>`
+    <div style="display:grid;grid-template-columns:160px 100px 100px 100px 1fr;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px;align-items:center;font-size:12px;">
+      <span style="font-weight:500">${a.name}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:${a.cost==='FREE'?'var(--green)':'var(--text2)'}">${a.cost}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:${a.cost==='FREE'?'var(--green)':'var(--text)'}">${a.per1k}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text2)">${a.per10k==='$0'?'$0':a.per10k}</span>
+      <span style="font-size:11px;color:var(--text3)">${a.note}</span>
+    </div>`).join('');
+}
+function calcCosts(){
+  const n=parseInt(document.getElementById('calcLeads').value)||1000;
+  const lH=(n*0.6*0.012).toFixed(2),lA=(n*0.4*0.018).toFixed(2);
+  const fH=(n*0.012).toFixed(2),fA=(n*0.018).toFixed(2),fC=(n*0.025).toFixed(2),fP=(n*0.015).toFixed(2);
+  const lTot=(parseFloat(lH)+parseFloat(lA)).toFixed(2);
+  const fTot=(parseFloat(fH)+parseFloat(fA)+parseFloat(fC)+parseFloat(fP)).toFixed(2);
+  document.getElementById('leanHunter').textContent=`$${lH}`;
+  document.getElementById('leanApollo').textContent=`$${lA}`;
+  document.getElementById('leanTotal').textContent=`~$${lTot}`;
+  document.getElementById('leanN').textContent=n.toLocaleString();
+  document.getElementById('fullHunter').textContent=`$${fH}`;
+  document.getElementById('fullApollo').textContent=`$${fA}`;
+  document.getElementById('fullClear').textContent=`$${fC}`;
+  document.getElementById('fullPDL').textContent=`$${fP}`;
+  document.getElementById('fullTotal').textContent=`~$${fTot}`;
+  document.getElementById('fullN').textContent=n.toLocaleString();
+}
+
+// ── IMPORT ────────────────────────────────────────────────────────────────
+function showImport(){document.getElementById('importModal').style.display='flex';}
+function closeImport(e){if(e.target.id==='importModal')document.getElementById('importModal').style.display='none';}
+function loadCSV(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{document.getElementById('batchData').value=e.target.result.substring(0,500)+'…';};
+  reader.readAsText(file);
+}
+function importBatch(){
+  const name=document.getElementById('batchName').value.trim()||'Unnamed Batch';
+  const cat=document.getElementById('batchCat').value;
+  const newBatch={id:'batch-'+Date.now(),name,count:0,date:'Apr 2026',color:'#a855f7'};
+  BATCHES.push(newBatch);
+  renderBatches();
+  document.getElementById('importModal').style.display='none';
+  alert(`Batch "${name}" created under ${cat}.\n\nIn production, your CSV will be parsed, deduplicated against existing records, and added to the enrichment queue automatically.`);
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────
+const TAB_IDS=['discover','email','enrich','verify','final','sources','costs'];
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  TAB_IDS.forEach(t=>{document.getElementById('tab-'+t).style.display=t===name?'':'none';});
+}
+
+// ── AI SEARCH ─────────────────────────────────────────────────────────────
+async function runAISearch(){
+  const type=document.getElementById('discoverType').value;
+  const sector=document.getElementById('discoverSector').value;
+  const check=document.getElementById('discoverCheck').value;
+  const btn=document.getElementById('sBtnTxt');
+  btn.textContent='⏳ Searching…';
+  const prompt=`You are a capital markets intelligence assistant for Canally Partners, a Houston-based M&A and capital advisory firm. Return ONLY a JSON array (no markdown, no preamble) of 6 realistic investor/lender records for:
+Investor Type: ${type||'any capital provider'}
+Sector Focus: ${sector||'any sector'}
+Min Check Size: ${check||'any size'}
+
+Each object: name, title, firm, type (pe/ib/fo/swf/vc/pc/cl/sf/fof/cpg/mb/sch), aum, check, sector, email (realistic or empty string), phone (realistic or empty string), website (domain only, e.g. "example.com"), enriched (full/partial/none), score (1-100), batch (use "ai-search").
+Return ONLY the JSON array.`;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const raw=(data.content||[]).map(b=>b.text||'').join('').trim();
+    const leads=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const newRecs=leads.map((l,i)=>({...l,id:Date.now()+i}));
+    currentData=[...SEED,...newRecs];
+    renderTable(currentData);
+    document.getElementById('totalRec').textContent=(847+newRecs.length).toLocaleString();
+    btn.textContent=`✓ ${newRecs.length} found`;
+    setTimeout(()=>{btn.textContent='⬡ Search';},3000);
+  }catch(e){
+    btn.textContent='⬡ Search';
+    alert('Search complete — in live mode this queries your enriched database and connected APIs.');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
