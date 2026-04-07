@@ -833,12 +833,22 @@ async function db_upsertRecord(r){
 }
 async function db_softDelete(ids){
   const sb=getSB(); if(!sb) return;
-  await sb.from('records').update({is_deleted:true}).in('id',ids.filter(i=>typeof i==='string'&&i.includes('-')));
+  // UUIDs (from DB) — delete directly by id
+  const uuids=ids.filter(i=>typeof i==='string'&&i.includes('-'));
+  if(uuids.length) await sb.from('records').update({is_deleted:true}).in('id',uuids);
+  // Numeric seed IDs — match by firm name via currentData lookup
+  const numericIds=ids.filter(i=>!String(i).includes('-'));
+  if(numericIds.length){
+    const firms=numericIds.map(id=>{const r=[...window._allRecords||[],...SEED].find(x=>x.id==id);return r?r.firm:null;}).filter(Boolean);
+    if(firms.length) await sb.from('records').update({is_deleted:true}).in('firm',firms);
+  }
 }
 async function db_updateRecord(id,changes){
   const sb=getSB(); if(!sb) return;
-  if(!id||!String(id).includes('-')) return;
-  await sb.from('records').update(changes).eq('id',id);
+  if(!id) return;
+  if(String(id).includes('-')){
+    await sb.from('records').update(changes).eq('id',id);
+  }
 }
 async function db_createBatch(b){
   const sb=getSB(); if(!sb) return;
@@ -872,6 +882,7 @@ async function initWithDB(){
 
   if(dbRecords && dbRecords.length > 0){
     currentData = dbRecords;
+    window._allRecords = dbRecords;
   }
   if(dbBatches && dbBatches.length > 0){
     BATCHES.length=0; BATCHES.push(...dbBatches);
@@ -1034,13 +1045,24 @@ async function bulkDelete(){
   if(!n)return;
   if(!confirm(`Delete ${n} record${n>1?'s':''}? This cannot be undone.`))return;
   const deletedIds=[...selectedIds];
+  // Snapshot firm/name pairs BEFORE removing from currentData (for seed ID lookup)
+  const deletedRecords=currentData.filter(r=>selectedIds.has(r.id));
   currentData=currentData.filter(r=>!selectedIds.has(r.id));
   finalList=finalList.filter(r=>!selectedIds.has(r.id));
+  window._allRecords=(window._allRecords||[]).filter(r=>!selectedIds.has(r.id));
   selectedIds.clear();
   document.getElementById('selAll').checked=false;
   document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
   updateActBar(); applyFilters(); renderFinal();
-  if(sbReady()) await db_softDelete(deletedIds);
+  if(sbReady()){
+    const sb=getSB();
+    // Delete by UUID where possible
+    const uuids=deletedRecords.filter(r=>String(r.id).includes('-')).map(r=>r.id);
+    if(uuids.length) await sb.from('records').update({is_deleted:true}).in('id',uuids);
+    // Delete seed/numeric records by firm name
+    const firms=deletedRecords.filter(r=>!String(r.id).includes('-')).map(r=>r.firm).filter(Boolean);
+    if(firms.length) await sb.from('records').update({is_deleted:true}).in('firm',firms);
+  }
   showToast(`${n} record${n>1?'s':''} deleted`,'red');
 }
 function queueOne(id){const r=currentData.find(x=>x.id===id);if(r)alert(`"${r.name} · ${r.firm}" queued. Est. 3 credits (~$0.05).`);}
@@ -1293,7 +1315,14 @@ function renderFinal(){
 async function removeFromFinal(id){
   finalList=finalList.filter(x=>x.id!==id);
   renderFinal();
-  if(sbReady()&&String(id).includes('-')) await getSB().from('records').update({in_final_list:false}).eq('id',id);
+  if(sbReady()){
+    if(String(id).includes('-')){
+      await getSB().from('records').update({in_final_list:false}).eq('id',id);
+    } else {
+      const r=SEED.find(x=>x.id==id);
+      if(r) await getSB().from('records').update({in_final_list:false}).eq('firm',r.firm);
+    }
+  }
   showToast('Removed from Finalized List','amber');
 }
 function toggleFinalAll(cb){document.querySelectorAll('#finalBody input[type=checkbox]').forEach(c=>c.checked=cb.checked);}
