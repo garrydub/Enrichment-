@@ -495,6 +495,38 @@
 
   <!-- ── TAB: SOURCES & APIS ────────────────────────────────────────────── -->
   <div id="tab-sources" class="content" style="display:none;">
+
+    <!-- Supabase connection -->
+    <div class="panel" style="margin-bottom:14px;border-color:rgba(79,142,247,0.25);">
+      <div class="panel-hdr" style="background:rgba(79,142,247,0.05);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="panel-title">Supabase Connection</span>
+          <span id="sbStatusBadge" style="font-size:10px;padding:2px 9px;border-radius:12px;font-weight:600;background:rgba(85,92,114,0.2);color:var(--text3);">&#9679; not connected</span>
+        </div>
+        <button class="btn sm primary" onclick="connectSupabase()">Connect &amp; Test</button>
+      </div>
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+        <p style="font-size:11px;color:var(--text3);line-height:1.7;">Paste your Supabase credentials below. Find them in <strong style="color:var(--text2)">Supabase &rarr; Settings &rarr; API</strong>. Once connected, all data saves automatically between sessions.</p>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+          <div>
+            <label class="sb-label">Project URL</label>
+            <input class="fi" id="sbUrl" type="text" placeholder="https://xxxx.supabase.co" style="margin-top:4px;font-family:var(--mono);font-size:11px;" oninput="checkSbInputs()"/>
+          </div>
+          <div>
+            <label class="sb-label">Anon / Public Key</label>
+            <input class="fi" id="sbKey" type="password" placeholder="eyJ… paste your full anon key here" style="margin-top:4px;font-family:var(--mono);font-size:11px;" oninput="checkSbInputs()"/>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="btn sm" onclick="toggleSbKeyVisibility()" id="sbEyeBtn">Show key</button>
+          <span style="font-size:11px;color:var(--text3);">Saved to localStorage on this device.</span>
+          <div style="flex:1"></div>
+          <button class="btn sm danger" onclick="clearSupabase()">Clear &amp; Disconnect</button>
+        </div>
+        <div id="sbTestResult" style="display:none;font-size:11px;padding:8px 12px;border-radius:6px;"></div>
+      </div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
       <div class="panel">
         <div class="panel-hdr"><span class="panel-title">🔓 Free Sources</span></div>
@@ -1261,6 +1293,68 @@ function renderSources(){
 }
 function saveKeys(){alert('Keys saved to session. For persistent storage, deploy to Vercel and use environment variables.');}
 
+// ── SUPABASE CONNECTION UI ─────────────────────────────────────────
+function checkSbInputs(){
+  const url=document.getElementById('sbUrl').value.trim();
+  const key=document.getElementById('sbKey').value.trim();
+}
+function toggleSbKeyVisibility(){
+  const inp=document.getElementById('sbKey');
+  const btn=document.getElementById('sbEyeBtn');
+  if(inp.type==='password'){inp.type='text';btn.textContent='Hide key';}
+  else{inp.type='password';btn.textContent='Show key';}
+}
+async function connectSupabase(){
+  const url=document.getElementById('sbUrl').value.trim();
+  const key=document.getElementById('sbKey').value.trim();
+  if(!url||!key){alert('Paste both your Project URL and anon key first.');return;}
+  const result=document.getElementById('sbTestResult');
+  result.style.display='block';
+  result.style.background='rgba(245,158,11,0.1)';result.style.color='var(--amber)';
+  result.style.border='1px solid rgba(245,158,11,0.2)';
+  result.textContent='Testing connection...';
+  try{
+    const res=await fetch(url+'/rest/v1/batches?select=id&limit=1',{
+      headers:{'apikey':key,'Authorization':'Bearer '+key}
+    });
+    if(res.ok||res.status===406){
+      localStorage.setItem('sb_url',url);
+      localStorage.setItem('sb_key',key);
+      setSbStatus(true);
+      result.style.background='rgba(34,197,94,0.1)';result.style.color='var(--green)';
+      result.style.border='1px solid rgba(34,197,94,0.2)';
+      result.textContent='Connected successfully. Credentials saved to this browser.';
+    } else {
+      result.style.background='rgba(239,68,68,0.1)';result.style.color='var(--red)';
+      result.style.border='1px solid rgba(239,68,68,0.2)';
+      result.textContent='Failed ('+res.status+'). Check your Project URL and anon key — no extra spaces.';
+    }
+  }catch(e){
+    result.style.background='rgba(239,68,68,0.1)';result.style.color='var(--red)';
+    result.style.border='1px solid rgba(239,68,68,0.2)';
+    result.textContent='Connection error. URL format: https://xxxx.supabase.co (no trailing slash).';
+  }
+}
+function clearSupabase(){
+  if(!confirm('Remove Supabase credentials from this browser?'))return;
+  localStorage.removeItem('sb_url');localStorage.removeItem('sb_key');
+  document.getElementById('sbUrl').value='';document.getElementById('sbKey').value='';
+  setSbStatus(false);
+  document.getElementById('sbTestResult').style.display='none';
+}
+function setSbStatus(connected){
+  const badge=document.getElementById('sbStatusBadge');if(!badge)return;
+  if(connected){badge.style.background='rgba(34,197,94,0.12)';badge.style.color='var(--green)';badge.textContent='connected';}
+  else{badge.style.background='rgba(85,92,114,0.2)';badge.style.color='var(--text3)';badge.textContent='not connected';}
+}
+function loadSbCredentials(){
+  const url=localStorage.getItem('sb_url');const key=localStorage.getItem('sb_key');
+  if(url&&key){
+    const ui=document.getElementById('sbUrl');const ki=document.getElementById('sbKey');
+    if(ui)ui.value=url;if(ki)ki.value=key;setSbStatus(true);
+  }
+}
+
 // ── COST CALC ─────────────────────────────────────────────────────────────
 function renderCostTable(){
   document.getElementById('costBreakdown').innerHTML=COST_API.map(a=>`
@@ -1350,6 +1444,7 @@ Return ONLY the JSON array.`;
 }
 
 init();
+loadSbCredentials();
 </script>
 </body>
 </html>
