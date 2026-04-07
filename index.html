@@ -627,47 +627,67 @@
 </main>
 </div>
 
-<!-- IMPORT MODAL -->
+<!-- IMPORT MODAL — 3 step wizard -->
 <div class="modal-bg" id="importModal" style="display:none;" onclick="closeImport(event)">
-  <div class="modal" style="width:580px;" onclick="e=>e.stopPropagation()">
-    <div class="modal-title">Import Batch</div>
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  <div class="modal" style="width:720px;max-height:90vh;overflow-y:auto;" onclick="e=>e.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="modal-title" style="margin:0" id="importModalTitle">Import Batch — Step 1: Upload</div>
+      <button class="btn sm" onclick="closeImportModal()">✕</button>
+    </div>
+    <!-- STEP 1: Upload -->
+    <div id="importStep1">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
         <div><label class="sb-label">Batch Name</label>
-          <input class="fi" id="batchName" placeholder="e.g. Sports Funds List — April 2026" style="margin-top:4px;"/></div>
-        <div><label class="sb-label">Category Tag</label>
+          <input class="fi" id="batchName" placeholder="e.g. Sports Funds — April 2026" style="margin-top:4px;"/></div>
+        <div><label class="sb-label">Category</label>
           <select class="fi" id="batchCat" style="margin-top:4px;">
             <option>Mixed — Multiple Types</option><option>Private Equity</option><option>Family Office</option>
             <option>Sports Fund</option><option>Investment Bank</option><option>Commercial Lender</option>
             <option>Sovereign Wealth</option><option>Venture Capital</option><option>Private Credit</option>
           </select></div>
       </div>
-      <!-- File upload -->
-      <div>
-        <label class="sb-label">Upload CSV File</label>
-        <div style="margin-top:4px;border:1px dashed var(--border2);border-radius:8px;padding:14px;text-align:center;cursor:pointer;" onclick="document.getElementById('batchFile').click()">
-          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">📂 Click to select a CSV file</div>
-          <div id="csvFileLabel" style="font-size:11px;color:var(--text3);font-family:var(--mono)">No file selected</div>
-          <input type="file" id="batchFile" accept=".csv,.txt" onchange="loadCSV(this)" style="display:none;"/>
+      <div id="dropZone" style="border:2px dashed var(--border2);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:all 0.15s;"
+        onclick="document.getElementById('batchFile').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor='var(--border2)'"
+        ondrop="event.preventDefault();this.style.borderColor='var(--border2)';handleDrop(event)">
+        <div style="font-size:24px;margin-bottom:8px;">📂</div>
+        <div style="font-size:13px;color:var(--text2);font-weight:500;">Drop CSV file here or click to browse</div>
+        <div id="csvFileLabel" style="font-size:11px;color:var(--text3);margin-top:6px;font-family:var(--mono)">No file selected — any CSV format accepted</div>
+        <input type="file" id="batchFile" accept=".csv,.txt,.tsv" onchange="handleFileSelect(this)" style="display:none;"/>
+      </div>
+      <div id="csvParseStatus" style="display:none;margin-top:10px;padding:10px 14px;border-radius:7px;font-size:12px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+        <button class="btn" onclick="closeImportModal()">Cancel</button>
+        <button class="btn primary" id="step1Next" onclick="goToStep2()" disabled style="opacity:0.5">Next: Map Columns →</button>
+      </div>
+    </div>
+    <!-- STEP 2: Column Mapping -->
+    <div id="importStep2" style="display:none;">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">Your CSV columns are on the left. Match each one to a database field using the dropdowns. Green = auto-matched. Skip unmapped columns.</p>
+      <div style="display:grid;grid-template-columns:1fr 20px 1fr;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;">
+        <div style="padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;">Your CSV Column</div>
+        <div style="padding:8px;background:var(--bg3);border-bottom:1px solid var(--border);"></div>
+        <div style="padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;">Maps to Database Field</div>
+        <div id="mappingRows" style="grid-column:1/-1;"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;">
+        <button class="btn" onclick="goToStep1()">← Back</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" onclick="autoMapAll()">↻ Re-auto-map</button>
+          <button class="btn primary" onclick="goToStep3()">Preview Import →</button>
         </div>
-        <div id="csvPreview" style="margin-top:6px;font-size:10px;color:var(--text3);font-family:var(--mono);padding:6px 8px;background:var(--bg3);border-radius:5px;display:none;word-break:break-all;"></div>
       </div>
-      <!-- OR paste -->
-      <div>
-        <label class="sb-label">Or Paste CSV Data</label>
-        <textarea id="batchData" rows="4" placeholder="Paste CSV rows here — headers on the first line&#10;Name,Firm,Email,Phone,Website,Type,Sector,AUM..." style="margin-top:4px;font-family:var(--mono);font-size:11px;"></textarea>
+    </div>
+    <!-- STEP 3: Preview -->
+    <div id="importStep3" style="display:none;">
+      <div id="importPreviewInfo" style="font-size:12px;color:var(--text2);margin-bottom:10px;"></div>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;max-height:300px;overflow-y:auto;">
+        <table id="importPreviewTable" style="width:100%;border-collapse:collapse;font-size:11px;"></table>
       </div>
-      <!-- Column hint -->
-      <div style="padding:8px 12px;background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:6px;">
-        <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Recognized column headers (flexible naming)</div>
-        <div style="font-size:10px;color:var(--text3);line-height:1.8;">
-          Name / Contact / Full Name &nbsp;·&nbsp; Firm / Company / Lender &nbsp;·&nbsp; Title / Role &nbsp;·&nbsp; Email &nbsp;·&nbsp; Phone / Mobile / Direct Dial<br>
-          Website / URL / Domain &nbsp;·&nbsp; Type / Category &nbsp;·&nbsp; Sector / Industry &nbsp;·&nbsp; AUM &nbsp;·&nbsp; Check Size / Min Ticket &nbsp;·&nbsp; Notes
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="btn" onclick="document.getElementById('importModal').style.display='none';_csvFileContent='';">Cancel</button>
-        <button class="btn primary" onclick="importBatch()">Import Batch</button>
+      <div style="display:flex;gap:8px;justify-content:space-between;margin-top:14px;">
+        <button class="btn" onclick="goToStep2()">← Edit Mapping</button>
+        <button class="btn primary" id="confirmImportBtn" onclick="confirmImport()">✓ Import All Records</button>
       </div>
     </div>
   </div>
@@ -1008,13 +1028,37 @@ function filterCat(id) {
 // ── BATCHES ───────────────────────────────────────────────────────────────
 function renderBatches() {
   document.getElementById('batchList').innerHTML = BATCHES.map(b=>`
-    <div class="batch-pill${activeBatch===b.id?' active':''}" onclick="filterBatch('${b.id}')">
-      <div>
+    <div class="batch-pill${activeBatch===b.id?' active':''}" style="position:relative;">
+      <div onclick="filterBatch('${b.id}')" style="flex:1;cursor:pointer;">
         <div class="batch-name">${b.name}</div>
-        <div class="batch-meta">${b.count} records · ${b.date}</div>
+        <div class="batch-meta">${b.count||0} records · ${b.date||''}</div>
       </div>
-      <div style="width:6px;height:6px;border-radius:50%;background:${b.color};flex-shrink:0;margin-left:6px;"></div>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+        <div style="width:6px;height:6px;border-radius:50%;background:${b.color};"></div>
+        ${b.id!=='default'?`<button onclick="event.stopPropagation();deleteBatch('${b.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1;" title="Delete batch">✕</button>`:''}
+      </div>
     </div>`).join('');
+}
+async function deleteBatch(batchId){
+  const b=BATCHES.find(x=>x.id===batchId);
+  if(!b)return;
+  const n=currentData.filter(r=>(r.batch===batchId||r.batch_id===batchId)).length;
+  if(!confirm(`Delete batch "${b.name}" and all ${n} records in it? This cannot be undone.`))return;
+  // Remove from local state
+  currentData=currentData.filter(r=>r.batch!==batchId&&r.batch_id!==batchId);
+  finalList=finalList.filter(r=>r.batch!==batchId&&r.batch_id!==batchId);
+  const idx=BATCHES.findIndex(x=>x.id===batchId);
+  if(idx>-1)BATCHES.splice(idx,1);
+  renderBatches();renderTable(currentData);renderFinal();renderCats();
+  document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
+  if(sbReady()){
+    const sb=getSB();
+    await sb.from('records').update({is_deleted:true}).eq('batch_id',batchId);
+    await sb.from('batches').delete().eq('id',batchId);
+    showToast(`Batch "${b.name}" deleted`,'red');
+  } else {
+    showToast(`Batch "${b.name}" removed locally`,'amber');
+  }
 }
 function filterBatch(id) {
   activeBatch = activeBatch===id?null:id;
@@ -1651,173 +1695,288 @@ function calcCosts(){
   document.getElementById('fullN').textContent=n.toLocaleString();
 }
 
-// ── IMPORT ────────────────────────────────────────────────────────────────
-function showImport(){document.getElementById('importModal').style.display='flex';}
-function closeImport(e){if(e.target.id==='importModal')document.getElementById('importModal').style.display='none';}
+// ── IMPORT — PPL-style 3-step wizard ─────────────────────────────────────
+let _csvRaw = '';
+let _csvHeaders = [];
+let _csvRows = [];
+let _csvMapping = {};
+let _parsedRecords = [];
 
-// Store full file contents — don't truncate
-let _csvFileContent = '';
-function loadCSV(input){
-  const file=input.files[0];if(!file)return;
-  const label=document.getElementById('csvFileLabel');
-  if(label) label.textContent=`${file.name} (${(file.size/1024).toFixed(1)} KB)`;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    _csvFileContent=e.target.result;
-    // Show row count preview
-    const lines=_csvFileContent.split('\n').filter(l=>l.trim());
-    const preview=document.getElementById('csvPreview');
-    if(preview){preview.style.display='block';preview.textContent=`${lines.length-1} rows detected · Headers: ${lines[0].substring(0,100)}`;}
-  };
-  reader.readAsText(file);
-}
+// DB field definitions with aliases for auto-mapping
+const DB_FIELDS = [
+  {key:'name',      label:'Contact Name',   aliases:['name','contact','fullname','firstname','keycontact','key contact','person','contactname']},
+  {key:'firm',      label:'Firm / Company', aliases:['firm','company','organization','org','companyname','firmname','lender','lendername','employer']},
+  {key:'title',     label:'Title / Role',   aliases:['title','jobtitle','role','position','designation','jobrole']},
+  {key:'email',     label:'Email',          aliases:['email','emailaddress','mail','workemail','businessemail','e-mail']},
+  {key:'phone',     label:'Phone',          aliases:['phone','phonenumber','telephone','mobile','cell','directdial','number','direct','tel']},
+  {key:'website',   label:'Website',        aliases:['website','url','web','site','domain','homepage','companyurl','companywebsite']},
+  {key:'type',      label:'Investor Type',  aliases:['type','investortype','firmtype','category','lendertype','investorcat','fundtype']},
+  {key:'sector',    label:'Sector / Focus', aliases:['sector','industry','focus','sectorsfocus','sectorfocus','vertical','focusarea','speciality']},
+  {key:'aum',       label:'AUM',            aliases:['aum','assetsundermanagement','assets','fundsize','totalassets','totalfundsize','aummillion']},
+  {key:'min_check', label:'Min Check / Ticket', aliases:['checksize','mincheck','minimumcheck','dealsize','minticket','ticketsize','mininvestment','minimuminvestment','loansize','loansizerange']},
+  {key:'linkedin_url', label:'LinkedIn',    aliases:['linkedin','linkedinurl','linkedinprofile','li']},
+  {key:'notes',     label:'Notes',          aliases:['notes','note','comments','description','tags','lendingcapabilities','underwritingcriteria','criteria']},
+  {key:'_skip',     label:'— Skip column —', aliases:[]},
+];
 
-// Robust CSV parser — handles quoted fields containing commas and newlines
-function parseCSV(raw){
-  const rows=[];
-  let cur='', inQuote=false, fields=[], r=0;
-  for(let i=0;i<raw.length;i++){
-    const ch=raw[i], next=raw[i+1];
-    if(ch==='"'){
-      if(inQuote && next==='"'){cur+='"';i++;}
-      else inQuote=!inQuote;
-    } else if(ch===',' && !inQuote){
-      fields.push(cur.trim());cur='';
-    } else if((ch==='\n'||(ch==='\r'&&next==='\n')) && !inQuote){
-      if(ch==='\r')i++;
-      fields.push(cur.trim());
-      if(fields.some(f=>f)) rows.push(fields);
-      fields=[];cur='';r++;
-    } else {
-      cur+=ch;
+function scoreMatch(raw, aliases){
+  const h=raw.toLowerCase().replace(/[\s_\-"'.\/\(\)#]/g,'');
+  let best=0;
+  for(const a of aliases){
+    const an=a.toLowerCase().replace(/[\s_\-"'.\/\(\)#]/g,'');
+    if(h===an) return 100;
+    if(h.includes(an)||an.includes(h)) best=Math.max(best,70);
+    else {
+      const hw=raw.toLowerCase().split(/[\s_\-\/]+/);
+      const aw=a.toLowerCase().split(/[\s_\-\/]+/);
+      let ov=0;
+      for(const w of hw){ if(w.length<2)continue; for(const x of aw){ if(x.includes(w)||w.includes(x))ov++; } }
+      if(ov>0) best=Math.max(best,35*ov);
     }
   }
-  if(cur||fields.length){fields.push(cur.trim());if(fields.some(f=>f))rows.push(fields);}
+  return best;
+}
+
+function autoMap(headers){
+  const map={}, used=new Set();
+  for(const f of DB_FIELDS){
+    if(f.key==='_skip') continue;
+    let best=-1, bestIdx=-1;
+    headers.forEach((h,i)=>{
+      if(used.has(i)) return;
+      const s=scoreMatch(h,f.aliases);
+      if(s>best){best=s;bestIdx=i;}
+    });
+    if(best>=35&&bestIdx>=0){map[bestIdx]=f.key;used.add(bestIdx);}
+  }
+  return map;
+}
+
+// Robust CSV parser — handles all quoting, Windows/Mac line endings, unlimited rows
+function parseCSVFull(raw){
+  const NL=10,CR=13,COMMA=44,QUOTE=34;
+  const rows=[];
+  let cur='', inQ=false, fields=[];
+  for(let i=0;i<raw.length;i++){
+    const cc=raw.charCodeAt(i), nx=raw.charCodeAt(i+1);
+    if(cc===QUOTE){ if(inQ&&nx===QUOTE){cur+='"';i++;} else inQ=!inQ; }
+    else if(cc===COMMA&&!inQ){ fields.push(cur); cur=''; }
+    else if((cc===NL||(cc===CR&&nx===NL))&&!inQ){
+      if(cc===CR)i++;
+      fields.push(cur); cur='';
+      if(fields.some(f=>f.trim())) rows.push(fields.map(f=>f.trim().replace(/^"|"$/g,'')));
+      fields=[];
+    } else { cur+=raw[i]; }
+  }
+  if(cur||fields.length){ fields.push(cur); if(fields.some(f=>f.trim())) rows.push(fields.map(f=>f.trim().replace(/^"|"$/g,''))); }
   return rows;
 }
 
-// Flexible column mapper — handles many real-world header formats
-function mapHeader(h){
-  const s=h.toLowerCase().replace(/[^a-z0-9]/g,'');
-  if(['name','contactname','contact','fullname','firstname','person'].includes(s)) return 'name';
-  if(['lastname','surname'].includes(s)) return 'lastname';
-  if(['firm','company','organization','org','companyname','firmname','lender','lendername'].includes(s)) return 'firm';
-  if(['title','jobtitle','role','position','designation'].includes(s)) return 'title';
-  if(['email','emailaddress','mail','workemail','businessemail'].includes(s)) return 'email';
-  if(['phone','phonenumber','telephone','mobile','cell','directdial','number'].includes(s)) return 'phone';
-  if(['website','url','web','site','domain','homepage','companyurl'].includes(s)) return 'website';
-  if(['type','investortype','firmtype','category','lendertype'].includes(s)) return 'type';
-  if(['sector','industry','focus','sectorsfocus','sectorfocus','vertical'].includes(s)) return 'sector';
-  if(['aum','assetsundermanagement','assets','fundsize','totalassets'].includes(s)) return 'aum';
-  if(['checksize','mincheck','minimumcheck','dealsize','minticket','ticketsize'].includes(s)) return 'check';
-  if(['linkedin','linkedinurl','linkedinprofile'].includes(s)) return 'linkedin';
-  if(['notes','note','comments','description'].includes(s)) return 'notes';
-  if(['state','region','location','city','country'].includes(s)) return 'location';
-  return null;
+// Detect which row is the actual header (skip metadata rows)
+function detectHeaderRow(rows){
+  const kw=['name','company','contact','email','phone','title','category','loan','website','notes','lending','firm','type','sector'];
+  let best=0, bestIdx=0;
+  for(let i=0;i<Math.min(10,rows.length);i++){
+    let score=rows[i].filter(c=>c&&c.trim()).length;
+    for(const c of rows[i]){ const cl=c.toLowerCase(); for(const k of kw){ if(cl.includes(k)){score+=5;break;} } }
+    if(score>best){best=score;bestIdx=i;}
+  }
+  return bestIdx;
 }
 
-async function importBatch(){
-  const name=document.getElementById('batchName').value.trim()||'Unnamed Batch';
-  const cat=document.getElementById('batchCat').value;
-  const pastedCSV=document.getElementById('batchData').value.trim();
-  const rawCSV=_csvFileContent||pastedCSV;
-  const batchId='batch-'+Date.now();
-  const color='#a855f7';
-
-  if(!rawCSV||rawCSV.length<5){
-    showToast('No CSV data found — upload a file or paste data first','amber');
-    return;
-  }
-
-  // Show loading state in modal
-  const importBtn=document.querySelector('[onclick="importBatch()"]');
-  if(importBtn){importBtn.textContent='⏳ Importing…';importBtn.disabled=true;}
-
-  let parsedRecords=[];
+function handleDrop(e){
+  const f=e.dataTransfer.files[0];
+  if(f) readFile(f);
+}
+function handleFileSelect(inp){
+  if(inp.files[0]) readFile(inp.files[0]);
+}
+function readFile(file){
+  const lbl=document.getElementById('csvFileLabel');
+  if(lbl) lbl.textContent=`${file.name} — reading…`;
+  const reader=new FileReader();
+  reader.onload=e=>{ _csvRaw=e.target.result; processCSV(_csvRaw, file.name); };
+  reader.readAsText(file);
+}
+function processCSV(raw, filename){
+  const status=document.getElementById('csvParseStatus');
   try{
-    const rows=parseCSV(rawCSV);
-    if(rows.length<2){showToast('CSV appears empty or unreadable','amber');return;}
-
-    const rawHeaders=rows[0];
-    const headerMap=rawHeaders.map(h=>mapHeader(h));
-
-    parsedRecords=rows.slice(1).map(vals=>{
-      const obj={batch_id:batchId,enriched:'none',score:0,is_deleted:false};
-      headerMap.forEach((mapped,i)=>{
-        const v=(vals[i]||'').trim();
-        if(!mapped||!v) return;
-        if(mapped==='name') obj.name=v;
-        else if(mapped==='lastname') obj._lastname=v;
-        else if(mapped==='firm') obj.firm=v;
-        else if(mapped==='title') obj.title=v;
-        else if(mapped==='email') obj.email=v;
-        else if(mapped==='phone') obj.phone=v;
-        else if(mapped==='website') obj.website=v.replace(/^https?:\/\//,'').replace(/\/$/,'');
-        else if(mapped==='type') obj.type=v.toLowerCase().substring(0,10);
-        else if(mapped==='sector') obj.sector=v;
-        else if(mapped==='aum') obj.aum=v;
-        else if(mapped==='check') obj.min_check=v;
-        else if(mapped==='linkedin') obj.linkedin_url=v;
-        else if(mapped==='notes') obj.notes=v;
-        else if(mapped==='location') obj.sector=(obj.sector?obj.sector+' / ':'')+v;
-      });
-      // Combine first + last name if split
-      if(obj._lastname && obj.name) obj.name=obj.name+' '+obj._lastname;
-      delete obj._lastname;
-      // Require at minimum a firm or name
-      if(!obj.name && !obj.firm) return null;
-      if(!obj.name) obj.name='—';
-      if(!obj.firm) obj.firm=obj.name;
-      return obj;
-    }).filter(Boolean);
-
-    // Set email enrichment status automatically
-    parsedRecords.forEach(r=>{
-      if(r.email && r.phone) r.enriched='full';
-      else if(r.email || r.phone) r.enriched='partial';
-    });
-
+    const allRows=parseCSVFull(raw);
+    if(!allRows.length){ showParseError('File appears empty.'); return; }
+    const hdrIdx=detectHeaderRow(allRows);
+    _csvHeaders=allRows[hdrIdx];
+    _csvRows=allRows.slice(hdrIdx+1).filter(r=>r.some(c=>c&&c.trim()));
+    _csvMapping=autoMap(_csvHeaders);
+    const lbl=document.getElementById('csvFileLabel');
+    if(lbl) lbl.textContent=`${filename} — ${_csvRows.length.toLocaleString()} data rows, ${_csvHeaders.length} columns`;
+    if(status){
+      status.style.display='block';
+      status.style.background='rgba(34,197,94,0.1)';status.style.color='var(--green)';status.style.border='1px solid rgba(34,197,94,0.2)';
+      status.textContent=`✓ ${_csvRows.length.toLocaleString()} records detected · ${Object.keys(_csvMapping).length} columns auto-mapped`;
+    }
+    document.getElementById('step1Next').disabled=false;
+    document.getElementById('step1Next').style.opacity='1';
   }catch(e){
-    console.error('CSV parse error:',e);
-    showToast('CSV parse error — check console for details','red');
-    if(importBtn){importBtn.textContent='Import Batch';importBtn.disabled=false;}
-    return;
+    console.error(e); showParseError('Could not parse file: '+e.message);
   }
+}
+function showParseError(msg){
+  const s=document.getElementById('csvParseStatus');
+  if(s){s.style.display='block';s.style.background='rgba(239,68,68,0.1)';s.style.color='var(--red)';s.style.border='1px solid rgba(239,68,68,0.2)';s.textContent=msg;}
+}
 
+function showImport(){
+  _csvRaw='';_csvHeaders=[];_csvRows=[];_csvMapping={};_parsedRecords=[];
+  document.getElementById('batchName').value='';
+  document.getElementById('csvFileLabel').textContent='No file selected — any CSV format accepted';
+  const s=document.getElementById('csvParseStatus');if(s)s.style.display='none';
+  document.getElementById('step1Next').disabled=true;document.getElementById('step1Next').style.opacity='0.5';
+  goToStep1();
+  document.getElementById('importModal').style.display='flex';
+}
+function closeImportModal(){
   document.getElementById('importModal').style.display='none';
-  _csvFileContent='';
-  if(importBtn){importBtn.textContent='Import Batch';importBtn.disabled=false;}
+  _csvRaw='';
+}
+function closeImport(e){ if(e.target.id==='importModal') closeImportModal(); }
 
-  const newBatch={id:batchId,name,category:cat,count:parsedRecords.length,
-    date:new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'}),color};
-  BATCHES.push(newBatch);
-  renderBatches();
+function goToStep1(){
+  document.getElementById('importStep1').style.display='';
+  document.getElementById('importStep2').style.display='none';
+  document.getElementById('importStep3').style.display='none';
+  document.getElementById('importModalTitle').textContent='Import Batch — Step 1: Upload';
+}
+function goToStep2(){
+  if(!_csvHeaders.length){showToast('Upload a CSV file first','amber');return;}
+  document.getElementById('importStep1').style.display='none';
+  document.getElementById('importStep2').style.display='';
+  document.getElementById('importStep3').style.display='none';
+  document.getElementById('importModalTitle').textContent='Import Batch — Step 2: Map Columns';
+  renderMappingRows();
+}
+function goToStep3(){
+  buildPreview();
+  document.getElementById('importStep1').style.display='none';
+  document.getElementById('importStep2').style.display='none';
+  document.getElementById('importStep3').style.display='';
+  document.getElementById('importModalTitle').textContent='Import Batch — Step 3: Preview & Confirm';
+}
 
-  if(sbReady()){
-    showToast(`Uploading ${parsedRecords.length} records…`,'amber');
-    await db_createBatch(newBatch);
-    if(parsedRecords.length){
-      const ok=await db_insertRecords(parsedRecords);
-      if(ok){
-        const freshRecords=await db_loadRecords();
-        if(freshRecords){currentData=freshRecords;window._allRecords=freshRecords;}
-        const freshBatches=await db_loadBatches();
-        if(freshBatches){BATCHES.length=0;BATCHES.push(...freshBatches);}
-        renderTable(currentData); renderBatches(); renderCats();
-        document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
-        showToast(`✓ ${parsedRecords.length} records imported to Supabase`,'green');
+function renderMappingRows(){
+  const fieldOpts=DB_FIELDS.map(f=>`<option value="${f.key}">${f.label}</option>`).join('');
+  const rows=document.getElementById('mappingRows');
+  rows.innerHTML=_csvHeaders.map((h,i)=>{
+    const mapped=_csvMapping[i]||'_skip';
+    const sample=_csvRows[0]?(_csvRows[0][i]||''):'';
+    const isMatched=mapped&&mapped!=='_skip';
+    return `<div style="display:grid;grid-template-columns:1fr 20px 1fr;border-bottom:1px solid var(--border);">
+      <div style="padding:8px 12px;font-size:12px;display:flex;flex-direction:column;gap:2px;${isMatched?'background:rgba(34,197,94,0.04)':''}">
+        <span style="font-weight:500;color:var(--text)">${h}</span>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${sample.substring(0,50)||'(empty)'}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;font-size:14px;color:${isMatched?'var(--green)':'var(--text3)'}">→</div>
+      <div style="padding:6px 10px;display:flex;align-items:center;${isMatched?'background:rgba(34,197,94,0.04)':''}">
+        <select onchange="updateMapping(${i},this.value)" style="width:100%;background:var(--bg3);border:1px solid ${isMatched?'rgba(34,197,94,0.3)':'var(--border2)'};border-radius:6px;padding:6px 8px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;">
+          ${DB_FIELDS.map(f=>`<option value="${f.key}"${mapped===f.key?' selected':''}>${f.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+}
+function updateMapping(colIdx, fieldKey){
+  // Remove any existing mapping to this field (one field = one column)
+  for(const k in _csvMapping){ if(_csvMapping[k]===fieldKey&&parseInt(k)!==colIdx) delete _csvMapping[k]; }
+  if(fieldKey==='_skip') delete _csvMapping[colIdx];
+  else _csvMapping[colIdx]=fieldKey;
+  renderMappingRows();
+}
+function autoMapAll(){ _csvMapping=autoMap(_csvHeaders); renderMappingRows(); }
+
+function buildPreview(){
+  // Build parsed records from mapping
+  _parsedRecords=_csvRows.map(row=>{
+    const rec={enriched:'none',score:0};
+    for(const [colIdx,field] of Object.entries(_csvMapping)){
+      const val=(row[parseInt(colIdx)]||'').trim();
+      if(!val||field==='_skip') continue;
+      // Handle "Key Contact / Title" split
+      if((field==='name')&&val.includes(' / ')){
+        const parts=val.split(' / ');
+        rec.name=parts[0].trim();
+        if(!rec.title) rec.title=parts[1]?parts[1].trim():undefined;
+      } else if((field==='name')&&val.includes(',')){
+        const parts=val.split(',');
+        rec.name=parts[0].trim();
+        if(!rec.title&&parts[1]) rec.title=parts[1].trim();
       } else {
-        showToast('Upload failed — check Supabase connection','red');
+        rec[field]=val;
       }
     }
-  } else {
-    // No Supabase — add to local state
-    const withIds=parsedRecords.map((r,i)=>({...r,id:Date.now()+i,batch:batchId}));
-    currentData=[...currentData,...withIds];
-    renderTable(currentData); renderCats();
-    showToast(`${parsedRecords.length} records added locally (connect Supabase to persist)`,'amber');
-  }
+    if(!rec.name&&!rec.firm) return null;
+    if(!rec.name) rec.name='—';
+    if(!rec.firm) rec.firm=rec.name;
+    // Auto-set enrichment
+    if(rec.email&&rec.phone) rec.enriched='full';
+    else if(rec.email||rec.phone) rec.enriched='partial';
+    // Clean website
+    if(rec.website) rec.website=rec.website.replace(/^https?:\/\//,'').replace(/\/$/,'');
+    return rec;
+  }).filter(Boolean);
+
+  const info=document.getElementById('importPreviewInfo');
+  if(info) info.textContent=`${_parsedRecords.length.toLocaleString()} records ready to import. Showing first 5:`;
+
+  // Preview table
+  const cols=['name','firm','title','email','phone','website','type','sector','aum'];
+  const visibleCols=cols.filter(c=>_parsedRecords.slice(0,5).some(r=>r[c]));
+  const tbl=document.getElementById('importPreviewTable');
+  tbl.innerHTML=`<thead><tr style="background:var(--bg3);">${visibleCols.map(c=>`<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);white-space:nowrap">${c}</th>`).join('')}</tr></thead>
+  <tbody>${_parsedRecords.slice(0,5).map(r=>`<tr>${visibleCols.map(c=>`<td style="padding:7px 10px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[c]||'—'}</td>`).join('')}</tr>`).join('')}</tbody>`;
 }
+
+async function confirmImport(){
+  const name=document.getElementById('batchName').value.trim()||'Unnamed Batch';
+  const cat=document.getElementById('batchCat').value;
+  const batchId='batch-'+Date.now();
+  const btn=document.getElementById('confirmImportBtn');
+  btn.textContent='⏳ Uploading…';btn.disabled=true;
+
+  const newBatch={id:batchId,name,category:cat,count:_parsedRecords.length,
+    date:new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'}),color:'#a855f7'};
+
+  // Tag all records with batch
+  const tagged=_parsedRecords.map(r=>({...r,batch_id:batchId,batch:batchId}));
+
+  BATCHES.push(newBatch);
+  document.getElementById('importModal').style.display='none';
+
+  if(sbReady()){
+    showToast(`Uploading ${tagged.length.toLocaleString()} records…`,'amber');
+    await db_createBatch(newBatch);
+    const ok=await db_insertRecords(tagged);
+    if(ok){
+      const fresh=await db_loadRecords();
+      const freshB=await db_loadBatches();
+      if(fresh){currentData=fresh;}
+      if(freshB){BATCHES.length=0;BATCHES.push(...freshB);}
+      renderTable(currentData);renderBatches();renderCats();
+      document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
+      showToast(`✓ ${tagged.length.toLocaleString()} records imported`,'green');
+    } else {
+      showToast('Upload failed — check Supabase connection','red');
+    }
+  } else {
+    const withIds=tagged.map((r,i)=>({...r,id:Date.now()+i}));
+    currentData=[...currentData,...withIds];
+    renderTable(currentData);renderBatches();renderCats();
+    showToast(`${tagged.length.toLocaleString()} records added locally (connect Supabase to persist)`,'amber');
+  }
+  btn.textContent='✓ Import All Records';btn.disabled=false;
+}
+
+// Legacy stubs kept for any lingering onclick refs
+function loadCSV(inp){ if(inp.files[0]) readFile(inp.files[0]); }
+function importBatch(){ confirmImport(); }
 
 // ── TABS ──────────────────────────────────────────────────────────────────
 const TAB_IDS=['discover','email','enrich','verify','final','sources','costs'];
