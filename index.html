@@ -629,24 +629,44 @@
 
 <!-- IMPORT MODAL -->
 <div class="modal-bg" id="importModal" style="display:none;" onclick="closeImport(event)">
-  <div class="modal" onclick="e=>e.stopPropagation()">
+  <div class="modal" style="width:580px;" onclick="e=>e.stopPropagation()">
     <div class="modal-title">Import Batch</div>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      <div><label class="sb-label">Batch Name</label>
-        <input class="fi" id="batchName" placeholder="e.g. Sports Funds List — April 2026" style="margin-top:4px;"/></div>
-      <div><label class="sb-label">Category Tag</label>
-        <select class="fi" id="batchCat" style="margin-top:4px;">
-          <option>Private Equity</option><option>Family Office</option><option>Sports Fund</option>
-          <option>Investment Bank</option><option>Commercial Lender</option><option>Mixed — Multiple Types</option>
-        </select></div>
-      <div><label class="sb-label">CSV / Paste Data</label>
-        <textarea id="batchData" rows="5" placeholder="Paste CSV rows or upload a file below…" style="margin-top:4px;"></textarea></div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="file" id="batchFile" accept=".csv" onchange="loadCSV(this)" style="font-size:11px;color:var(--text2);"/>
-        <span style="font-size:11px;color:var(--text3)">CSV columns: Name, Title, Firm, Type, Email, Phone, Website, AUM, Sector</span>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label class="sb-label">Batch Name</label>
+          <input class="fi" id="batchName" placeholder="e.g. Sports Funds List — April 2026" style="margin-top:4px;"/></div>
+        <div><label class="sb-label">Category Tag</label>
+          <select class="fi" id="batchCat" style="margin-top:4px;">
+            <option>Mixed — Multiple Types</option><option>Private Equity</option><option>Family Office</option>
+            <option>Sports Fund</option><option>Investment Bank</option><option>Commercial Lender</option>
+            <option>Sovereign Wealth</option><option>Venture Capital</option><option>Private Credit</option>
+          </select></div>
       </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
-        <button class="btn" onclick="document.getElementById('importModal').style.display='none'">Cancel</button>
+      <!-- File upload -->
+      <div>
+        <label class="sb-label">Upload CSV File</label>
+        <div style="margin-top:4px;border:1px dashed var(--border2);border-radius:8px;padding:14px;text-align:center;cursor:pointer;" onclick="document.getElementById('batchFile').click()">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">📂 Click to select a CSV file</div>
+          <div id="csvFileLabel" style="font-size:11px;color:var(--text3);font-family:var(--mono)">No file selected</div>
+          <input type="file" id="batchFile" accept=".csv,.txt" onchange="loadCSV(this)" style="display:none;"/>
+        </div>
+        <div id="csvPreview" style="margin-top:6px;font-size:10px;color:var(--text3);font-family:var(--mono);padding:6px 8px;background:var(--bg3);border-radius:5px;display:none;word-break:break-all;"></div>
+      </div>
+      <!-- OR paste -->
+      <div>
+        <label class="sb-label">Or Paste CSV Data</label>
+        <textarea id="batchData" rows="4" placeholder="Paste CSV rows here — headers on the first line&#10;Name,Firm,Email,Phone,Website,Type,Sector,AUM..." style="margin-top:4px;font-family:var(--mono);font-size:11px;"></textarea>
+      </div>
+      <!-- Column hint -->
+      <div style="padding:8px 12px;background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:6px;">
+        <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Recognized column headers (flexible naming)</div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.8;">
+          Name / Contact / Full Name &nbsp;·&nbsp; Firm / Company / Lender &nbsp;·&nbsp; Title / Role &nbsp;·&nbsp; Email &nbsp;·&nbsp; Phone / Mobile / Direct Dial<br>
+          Website / URL / Domain &nbsp;·&nbsp; Type / Category &nbsp;·&nbsp; Sector / Industry &nbsp;·&nbsp; AUM &nbsp;·&nbsp; Check Size / Min Ticket &nbsp;·&nbsp; Notes
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn" onclick="document.getElementById('importModal').style.display='none';_csvFileContent='';">Cancel</button>
         <button class="btn primary" onclick="importBatch()">Import Batch</button>
       </div>
     </div>
@@ -1612,64 +1632,168 @@ function calcCosts(){
 // ── IMPORT ────────────────────────────────────────────────────────────────
 function showImport(){document.getElementById('importModal').style.display='flex';}
 function closeImport(e){if(e.target.id==='importModal')document.getElementById('importModal').style.display='none';}
+
+// Store full file contents — don't truncate
+let _csvFileContent = '';
 function loadCSV(input){
   const file=input.files[0];if(!file)return;
+  const label=document.getElementById('csvFileLabel');
+  if(label) label.textContent=`${file.name} (${(file.size/1024).toFixed(1)} KB)`;
   const reader=new FileReader();
-  reader.onload=e=>{document.getElementById('batchData').value=e.target.result.substring(0,500)+'…';};
+  reader.onload=e=>{
+    _csvFileContent=e.target.result;
+    // Show row count preview
+    const lines=_csvFileContent.split('\n').filter(l=>l.trim());
+    const preview=document.getElementById('csvPreview');
+    if(preview){preview.style.display='block';preview.textContent=`${lines.length-1} rows detected · Headers: ${lines[0].substring(0,100)}`;}
+  };
   reader.readAsText(file);
 }
+
+// Robust CSV parser — handles quoted fields containing commas and newlines
+function parseCSV(raw){
+  const rows=[];
+  let cur='', inQuote=false, fields=[], r=0;
+  for(let i=0;i<raw.length;i++){
+    const ch=raw[i], next=raw[i+1];
+    if(ch==='"'){
+      if(inQuote && next==='"'){cur+='"';i++;}
+      else inQuote=!inQuote;
+    } else if(ch===',' && !inQuote){
+      fields.push(cur.trim());cur='';
+    } else if((ch==='\n'||(ch==='\r'&&next==='\n')) && !inQuote){
+      if(ch==='\r')i++;
+      fields.push(cur.trim());
+      if(fields.some(f=>f)) rows.push(fields);
+      fields=[];cur='';r++;
+    } else {
+      cur+=ch;
+    }
+  }
+  if(cur||fields.length){fields.push(cur.trim());if(fields.some(f=>f))rows.push(fields);}
+  return rows;
+}
+
+// Flexible column mapper — handles many real-world header formats
+function mapHeader(h){
+  const s=h.toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(['name','contactname','contact','fullname','firstname','person'].includes(s)) return 'name';
+  if(['lastname','surname'].includes(s)) return 'lastname';
+  if(['firm','company','organization','org','companyname','firmname','lender','lendername'].includes(s)) return 'firm';
+  if(['title','jobtitle','role','position','designation'].includes(s)) return 'title';
+  if(['email','emailaddress','mail','workemail','businessemail'].includes(s)) return 'email';
+  if(['phone','phonenumber','telephone','mobile','cell','directdial','number'].includes(s)) return 'phone';
+  if(['website','url','web','site','domain','homepage','companyurl'].includes(s)) return 'website';
+  if(['type','investortype','firmtype','category','lendertype'].includes(s)) return 'type';
+  if(['sector','industry','focus','sectorsfocus','sectorfocus','vertical'].includes(s)) return 'sector';
+  if(['aum','assetsundermanagement','assets','fundsize','totalassets'].includes(s)) return 'aum';
+  if(['checksize','mincheck','minimumcheck','dealsize','minticket','ticketsize'].includes(s)) return 'check';
+  if(['linkedin','linkedinurl','linkedinprofile'].includes(s)) return 'linkedin';
+  if(['notes','note','comments','description'].includes(s)) return 'notes';
+  if(['state','region','location','city','country'].includes(s)) return 'location';
+  return null;
+}
+
 async function importBatch(){
   const name=document.getElementById('batchName').value.trim()||'Unnamed Batch';
   const cat=document.getElementById('batchCat').value;
-  const rawCSV=document.getElementById('batchData').value.trim();
+  const pastedCSV=document.getElementById('batchData').value.trim();
+  const rawCSV=_csvFileContent||pastedCSV;
   const batchId='batch-'+Date.now();
-  const newBatch={id:batchId,name,category:cat,count:0,date:new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'}),color:'#a855f7'};
-  BATCHES.push(newBatch);
-  renderBatches();
-  document.getElementById('importModal').style.display='none';
+  const color='#a855f7';
 
-  // Parse CSV if provided
-  let parsedRecords=[];
-  if(rawCSV && rawCSV.length > 10 && !rawCSV.endsWith('…')){
-    try{
-      const lines=rawCSV.split('\n').filter(l=>l.trim());
-      const headers=lines[0].toLowerCase().split(',').map(h=>h.replace(/"/g,'').trim());
-      parsedRecords=lines.slice(1).map(line=>{
-        const vals=line.split(',').map(v=>v.replace(/"/g,'').trim());
-        const obj={batch:batchId};
-        headers.forEach((h,i)=>{
-          if(h==='name'||h==='contact') obj.name=vals[i]||'';
-          else if(h==='firm'||h==='company') obj.firm=vals[i]||'';
-          else if(h==='title'||h==='role') obj.title=vals[i]||null;
-          else if(h==='email') obj.email=vals[i]||null;
-          else if(h==='phone') obj.phone=vals[i]||null;
-          else if(h==='website'||h==='url') obj.website=vals[i]||null;
-          else if(h==='type') obj.type=vals[i]||null;
-          else if(h==='sector') obj.sector=vals[i]||null;
-          else if(h==='aum') obj.aum=vals[i]||null;
-        });
-        if(!obj.name) obj.name='Unknown';
-        if(!obj.firm) obj.firm='Unknown';
-        obj.enriched='none'; obj.score=0;
-        return obj;
-      }).filter(r=>r.name!=='Unknown'||r.firm!=='Unknown');
-    }catch(e){ console.error('CSV parse error:',e); }
+  if(!rawCSV||rawCSV.length<5){
+    showToast('No CSV data found — upload a file or paste data first','amber');
+    return;
   }
 
+  // Show loading state in modal
+  const importBtn=document.querySelector('[onclick="importBatch()"]');
+  if(importBtn){importBtn.textContent='⏳ Importing…';importBtn.disabled=true;}
+
+  let parsedRecords=[];
+  try{
+    const rows=parseCSV(rawCSV);
+    if(rows.length<2){showToast('CSV appears empty or unreadable','amber');return;}
+
+    const rawHeaders=rows[0];
+    const headerMap=rawHeaders.map(h=>mapHeader(h));
+
+    parsedRecords=rows.slice(1).map(vals=>{
+      const obj={batch_id:batchId,enriched:'none',score:0,is_deleted:false};
+      headerMap.forEach((mapped,i)=>{
+        const v=(vals[i]||'').trim();
+        if(!mapped||!v) return;
+        if(mapped==='name') obj.name=v;
+        else if(mapped==='lastname') obj._lastname=v;
+        else if(mapped==='firm') obj.firm=v;
+        else if(mapped==='title') obj.title=v;
+        else if(mapped==='email') obj.email=v;
+        else if(mapped==='phone') obj.phone=v;
+        else if(mapped==='website') obj.website=v.replace(/^https?:\/\//,'').replace(/\/$/,'');
+        else if(mapped==='type') obj.type=v.toLowerCase().substring(0,10);
+        else if(mapped==='sector') obj.sector=v;
+        else if(mapped==='aum') obj.aum=v;
+        else if(mapped==='check') obj.min_check=v;
+        else if(mapped==='linkedin') obj.linkedin_url=v;
+        else if(mapped==='notes') obj.notes=v;
+        else if(mapped==='location') obj.sector=(obj.sector?obj.sector+' / ':'')+v;
+      });
+      // Combine first + last name if split
+      if(obj._lastname && obj.name) obj.name=obj.name+' '+obj._lastname;
+      delete obj._lastname;
+      // Require at minimum a firm or name
+      if(!obj.name && !obj.firm) return null;
+      if(!obj.name) obj.name='—';
+      if(!obj.firm) obj.firm=obj.name;
+      return obj;
+    }).filter(Boolean);
+
+    // Set email enrichment status automatically
+    parsedRecords.forEach(r=>{
+      if(r.email && r.phone) r.enriched='full';
+      else if(r.email || r.phone) r.enriched='partial';
+    });
+
+  }catch(e){
+    console.error('CSV parse error:',e);
+    showToast('CSV parse error — check console for details','red');
+    if(importBtn){importBtn.textContent='Import Batch';importBtn.disabled=false;}
+    return;
+  }
+
+  document.getElementById('importModal').style.display='none';
+  _csvFileContent='';
+  if(importBtn){importBtn.textContent='Import Batch';importBtn.disabled=false;}
+
+  const newBatch={id:batchId,name,category:cat,count:parsedRecords.length,
+    date:new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'}),color};
+  BATCHES.push(newBatch);
+  renderBatches();
+
   if(sbReady()){
+    showToast(`Uploading ${parsedRecords.length} records…`,'amber');
     await db_createBatch(newBatch);
     if(parsedRecords.length){
-      await db_insertRecords(parsedRecords);
-      const freshRecords=await db_loadRecords();
-      if(freshRecords) currentData=freshRecords;
-      renderTable(currentData);
+      const ok=await db_insertRecords(parsedRecords);
+      if(ok){
+        const freshRecords=await db_loadRecords();
+        if(freshRecords){currentData=freshRecords;window._allRecords=freshRecords;}
+        const freshBatches=await db_loadBatches();
+        if(freshBatches){BATCHES.length=0;BATCHES.push(...freshBatches);}
+        renderTable(currentData); renderBatches(); renderCats();
+        document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
+        showToast(`✓ ${parsedRecords.length} records imported to Supabase`,'green');
+      } else {
+        showToast('Upload failed — check Supabase connection','red');
+      }
     }
-    const freshBatches=await db_loadBatches();
-    if(freshBatches){BATCHES.length=0;BATCHES.push(...freshBatches);}
-    renderBatches();
-    showToast(`Batch "${name}" saved — ${parsedRecords.length} records imported`,'green');
   } else {
-    showToast(`Batch "${name}" created locally (connect Supabase to persist)`,'amber');
+    // No Supabase — add to local state
+    const withIds=parsedRecords.map((r,i)=>({...r,id:Date.now()+i,batch:batchId}));
+    currentData=[...currentData,...withIds];
+    renderTable(currentData); renderCats();
+    showToast(`${parsedRecords.length} records added locally (connect Supabase to persist)`,'amber');
   }
 }
 
