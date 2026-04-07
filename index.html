@@ -883,6 +883,18 @@ async function initWithDB(){
   if(dbRecords && dbRecords.length > 0){
     currentData = dbRecords;
     window._allRecords = dbRecords;
+  } else if(dbRecords && dbRecords.length === 0){
+    // DB is empty — seed it with the demo records so they become real UUIDs
+    console.log('DB empty — seeding with demo records...');
+    const seeded = await db_insertRecords(SEED);
+    if(seeded){
+      const fresh = await db_loadRecords();
+      if(fresh && fresh.length > 0){
+        currentData = fresh;
+        window._allRecords = fresh;
+        showToast('Database initialized with demo records', 'green');
+      }
+    }
   }
   if(dbBatches && dbBatches.length > 0){
     BATCHES.length=0; BATCHES.push(...dbBatches);
@@ -904,6 +916,8 @@ async function initWithDB(){
   renderCats(); renderBatches(); renderTable(currentData);
   renderEnrichQ(); renderVerifier(SITE_DATA); renderFinal();
   renderSources(); renderCostTable(); renderTemplateList(); renderSaved();
+  // Re-render cats after table to get accurate live counts
+  renderCats();
 
   const sb = getSB();
   if(sb){
@@ -913,16 +927,30 @@ async function initWithDB(){
 
 // ── CATS ──────────────────────────────────────────────────────────────────
 function renderCats() {
-  document.getElementById('catList').innerHTML = CATS.map(c=>`
-    <div class="cat-item${activeCat===c.id?' active':''}" onclick="filterCat('${c.id}')">
+  // Compute live counts from currentData
+  const counts = {};
+  currentData.forEach(r=>{ if(r.type) counts[r.type]=(counts[r.type]||0)+1; });
+  document.getElementById('catList').innerHTML = CATS.map(c=>{
+    const n = counts[c.id]||0;
+    return `<div class="cat-item${activeCat===c.id?' active':''}" onclick="filterCat('${c.id}')">
       <div class="cat-dot" style="background:${c.color}"></div>
       <span class="cat-name">${c.label}</span>
-      <span class="cat-count">${c.count}</span>
-    </div>`).join('');
+      <span class="cat-count">${n}</span>
+    </div>`;
+  }).join('');
 }
 function filterCat(id) {
   activeCat = activeCat===id?null:id;
   renderCats(); applyFilters();
+  // Show active category label in batch badge area
+  const badge = document.getElementById('batchBadge');
+  if(activeCat && !activeBatch){
+    const cat = CATS.find(c=>c.id===activeCat);
+    document.getElementById('batchBadgeName').textContent = cat ? cat.label : activeCat;
+    badge.style.display = 'flex';
+  } else if(!activeBatch){
+    badge.style.display = 'none';
+  }
 }
 
 // ── BATCHES ───────────────────────────────────────────────────────────────
@@ -960,7 +988,7 @@ function renderTable(data) {
       <div><input type="checkbox" ${selectedIds.has(r.id)?'checked':''} onchange="toggleSel(${r.id},this)" onclick="e=>e.stopPropagation()" style="width:13px;height:13px;accent-color:var(--accent)"/></div>
       <div class="cell-name" onclick="showDetail(${r.id})">
         <span class="np">${r.name}</span>
-        <span class="ns">${r.firm}${r.batch!=='default'?` <span style="color:var(--teal);font-size:9px;margin-left:4px;">[${r.batch}]</span>`:''}${r.title?` · ${r.title}`:''}</span>
+        <span class="ns">${r.firm}${(r.batch||r.batch_id)!=='default'?` <span style="color:var(--teal);font-size:9px;margin-left:4px;">[${r.batch}]</span>`:''}${r.title?` · ${r.title}`:''}</span>
       </div>
       <div onclick="showDetail(${r.id})"><span class="badge b-${r.type}">${tlabel(r.type)}</span></div>
       <div class="cm" onclick="showDetail(${r.id})">${r.aum}</div>
@@ -991,7 +1019,7 @@ function applyFilters() {
   else if(activeFilter==='unenriched') d=d.filter(r=>r.enriched!=='full');
   else if(activeFilter!=='all') d=d.filter(r=>r.type===activeFilter);
   if(activeCat) d=d.filter(r=>r.type===activeCat);
-  if(activeBatch) d=d.filter(r=>r.batch===activeBatch);
+  if(activeBatch) d=d.filter(r=>(r.batch===activeBatch)||(r.batch_id===activeBatch));
   renderTable(d);
 }
 function filterTable(){applyFilters();}
@@ -1044,8 +1072,6 @@ async function bulkDelete(){
   const n=selectedIds.size;
   if(!n)return;
   if(!confirm(`Delete ${n} record${n>1?'s':''}? This cannot be undone.`))return;
-  const deletedIds=[...selectedIds];
-  // Snapshot firm/name pairs BEFORE removing from currentData (for seed ID lookup)
   const deletedRecords=currentData.filter(r=>selectedIds.has(r.id));
   currentData=currentData.filter(r=>!selectedIds.has(r.id));
   finalList=finalList.filter(r=>!selectedIds.has(r.id));
@@ -1053,17 +1079,22 @@ async function bulkDelete(){
   selectedIds.clear();
   document.getElementById('selAll').checked=false;
   document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
-  updateActBar(); applyFilters(); renderFinal();
+  updateActBar(); applyFilters(); renderFinal(); renderCats();
   if(sbReady()){
     const sb=getSB();
-    // Delete by UUID where possible
-    const uuids=deletedRecords.filter(r=>String(r.id).includes('-')).map(r=>r.id);
-    if(uuids.length) await sb.from('records').update({is_deleted:true}).in('id',uuids);
-    // Delete seed/numeric records by firm name
-    const firms=deletedRecords.filter(r=>!String(r.id).includes('-')).map(r=>r.firm).filter(Boolean);
-    if(firms.length) await sb.from('records').update({is_deleted:true}).in('firm',firms);
+    // All records now have UUIDs after auto-seed — delete by id
+    const uuids=deletedRecords.map(r=>r.id).filter(i=>i&&String(i).includes('-'));
+    // Fallback: any remaining by firm name (catches edge cases)
+    const nonUUID=deletedRecords.filter(r=>!String(r.id).includes('-'));
+    const firms=nonUUID.map(r=>r.firm).filter(Boolean);
+    let ok=true;
+    if(uuids.length){const {error}=await sb.from('records').update({is_deleted:true}).in('id',uuids);if(error){console.error('delete by id:',error);ok=false;}}
+    if(firms.length){const {error}=await sb.from('records').update({is_deleted:true}).in('firm',firms);if(error){console.error('delete by firm:',error);ok=false;}}
+    if(ok) showToast(`${n} record${n>1?'s':''} deleted`,'red');
+    else showToast('Delete may have partially failed — check console','amber');
+  } else {
+    showToast(`${n} record${n>1?'s':''} removed (connect Supabase to persist)`,'amber');
   }
-  showToast(`${n} record${n>1?'s':''} deleted`,'red');
 }
 function queueOne(id){const r=currentData.find(x=>x.id===id);if(r)alert(`"${r.name} · ${r.firm}" queued. Est. 3 credits (~$0.05).`);}
 
