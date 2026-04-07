@@ -781,6 +781,9 @@ let enrichRunning = false;
 
 // ── SUPABASE DB LAYER ─────────────────────────────────────────────────────
 let _sb = null;
+// Maps local record id -> supabase uuid, rebuilt on every load
+const dbIdMap = new Map();
+
 function getSB(){
   if(_sb) return _sb;
   const url=localStorage.getItem('sb_url');
@@ -791,11 +794,26 @@ function getSB(){
 }
 function sbReady(){ return !!getSB(); }
 
+// Get the real Supabase UUID for any record, regardless of local id format
+function getDbId(localId){
+  if(dbIdMap.has(localId)) return dbIdMap.get(localId);
+  // Already a UUID
+  if(typeof localId==='string' && localId.includes('-')) return localId;
+  return null;
+}
+
 async function db_loadRecords(){
   const sb=getSB(); if(!sb) return null;
   const {data,error}=await sb.from('records').select('*').eq('is_deleted',false).order('score',{ascending:false});
   if(error){console.error('load records:',error);return null;}
-  return data.map(r=>({...r, check:r.min_check, batch:r.batch_id, aum:r.aum||'—'}));
+  // Rebuild the id map so local ids always resolve to DB UUIDs
+  dbIdMap.clear();
+  return data.map(r=>{
+    const norm={...r, check:r.min_check||r.check||'—', batch:r.batch_id||r.batch||'default', aum:r.aum||'—'};
+    // Map the DB uuid -> itself (for records loaded from DB)
+    dbIdMap.set(r.id, r.id);
+    return norm;
+  });
 }
 async function db_loadBatches(){
   const sb=getSB(); if(!sb) return null;
@@ -851,24 +869,34 @@ async function db_upsertRecord(r){
   if(error){console.error('upsert record:',error);return null;}
   return data;
 }
-async function db_softDelete(ids){
-  const sb=getSB(); if(!sb) return;
-  // UUIDs (from DB) — delete directly by id
-  const uuids=ids.filter(i=>typeof i==='string'&&i.includes('-'));
-  if(uuids.length) await sb.from('records').update({is_deleted:true}).in('id',uuids);
-  // Numeric seed IDs — match by firm name via currentData lookup
-  const numericIds=ids.filter(i=>!String(i).includes('-'));
-  if(numericIds.length){
-    const firms=numericIds.map(id=>{const r=[...window._allRecords||[],...SEED].find(x=>x.id==id);return r?r.firm:null;}).filter(Boolean);
-    if(firms.length) await sb.from('records').update({is_deleted:true}).in('firm',firms);
+async function db_softDelete(localIds){
+  const sb=getSB(); if(!sb) return false;
+  // Resolve every local id to a DB uuid via map
+  const uuids=[...new Set(localIds.map(id=>getDbId(id)).filter(Boolean))];
+  if(!uuids.length){
+    console.warn('db_softDelete: no DB UUIDs found for ids',localIds,'— trying by firm name');
+    // Last resort: delete by firm name for any records we can find
+    const firms=localIds.map(id=>{
+      const r=currentData.find(x=>x.id==id)||SEED.find(x=>x.id==id);
+      return r?r.firm:null;
+    }).filter(Boolean);
+    if(firms.length){
+      const {error}=await sb.from('records').update({is_deleted:true}).in('firm',firms);
+      if(error) console.error('delete by firm failed:',error);
+      return !error;
+    }
+    return false;
   }
+  const {error}=await sb.from('records').update({is_deleted:true}).in('id',uuids);
+  if(error){console.error('db_softDelete error:',error);return false;}
+  return true;
 }
-async function db_updateRecord(id,changes){
+async function db_updateRecord(localId, changes){
   const sb=getSB(); if(!sb) return;
-  if(!id) return;
-  if(String(id).includes('-')){
-    await sb.from('records').update(changes).eq('id',id);
-  }
+  const uuid=getDbId(localId);
+  if(!uuid){console.warn('db_updateRecord: no UUID for',localId);return;}
+  const {error}=await sb.from('records').update(changes).eq('id',uuid);
+  if(error) console.error('db_updateRecord error:',error);
 }
 async function db_createBatch(b){
   const sb=getSB(); if(!sb) return;
@@ -902,18 +930,22 @@ async function initWithDB(){
 
   if(dbRecords && dbRecords.length > 0){
     currentData = dbRecords;
-    window._allRecords = dbRecords;
+    // Map seed numeric IDs to DB UUIDs by matching firm name
+    SEED.forEach(seed=>{
+      const match=dbRecords.find(r=>r.firm===seed.firm&&r.name===seed.name);
+      if(match) dbIdMap.set(seed.id, match.id);
+    });
   } else if(dbRecords && dbRecords.length === 0){
-    // DB is empty — seed it with the demo records so they become real UUIDs
-    console.log('DB empty — seeding with demo records...');
-    const seeded = await db_insertRecords(SEED);
-    if(seeded){
-      const fresh = await db_loadRecords();
-      if(fresh && fresh.length > 0){
-        currentData = fresh;
-        window._allRecords = fresh;
-        showToast('Database initialized with demo records', 'green');
-      }
+    console.log('DB empty — seeding demo records...');
+    await db_insertRecords(SEED);
+    const fresh=await db_loadRecords();
+    if(fresh && fresh.length>0){
+      currentData=fresh;
+      SEED.forEach(seed=>{
+        const match=fresh.find(r=>r.firm===seed.firm&&r.name===seed.name);
+        if(match) dbIdMap.set(seed.id, match.id);
+      });
+      showToast('Database initialized','green');
     }
   }
   if(dbBatches && dbBatches.length > 0){
@@ -1055,7 +1087,13 @@ function toggleSelAll(cb){
   document.querySelectorAll('#tableBody input[type=checkbox]').forEach(c=>{
     c.checked=cb.checked;
     const m=c.closest('.tbl-row');
-    if(m){const id=parseInt(m.id.split('-')[1]);if(cb.checked)selectedIds.add(id);else selectedIds.delete(id);m.classList.toggle('sel',cb.checked);}
+    if(m){
+      // Use raw string id from row, not parseInt (breaks UUIDs)
+      const rawId=m.id.replace('row-','');
+      const id=isNaN(rawId)?rawId:Number(rawId);
+      if(cb.checked)selectedIds.add(id);else selectedIds.delete(id);
+      m.classList.toggle('sel',cb.checked);
+    }
   });updateActBar();
 }
 function updateActBar(){
@@ -1077,8 +1115,7 @@ async function addToFinal(){
   newRecs.forEach(r=>{r.in_final_list=true; finalList.push(r);});
   renderFinal();
   if(sbReady() && newRecs.length){
-    const ids=newRecs.map(r=>r.id).filter(i=>String(i).includes('-'));
-    if(ids.length) await getSB().from('records').update({in_final_list:true}).in('id',ids);
+    for(const r of newRecs){ await db_updateRecord(r.id,{in_final_list:true}); }
   }
   showToast(`${newRecs.length} records added to Finalized List`,'green');
   clearSel();
@@ -1092,28 +1129,20 @@ async function bulkDelete(){
   const n=selectedIds.size;
   if(!n)return;
   if(!confirm(`Delete ${n} record${n>1?'s':''}? This cannot be undone.`))return;
-  const deletedRecords=currentData.filter(r=>selectedIds.has(r.id));
+  const ids=[...selectedIds];
+  // Update local state immediately for responsive UI
   currentData=currentData.filter(r=>!selectedIds.has(r.id));
   finalList=finalList.filter(r=>!selectedIds.has(r.id));
-  window._allRecords=(window._allRecords||[]).filter(r=>!selectedIds.has(r.id));
   selectedIds.clear();
   document.getElementById('selAll').checked=false;
   document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
   updateActBar(); applyFilters(); renderFinal(); renderCats();
   if(sbReady()){
-    const sb=getSB();
-    // All records now have UUIDs after auto-seed — delete by id
-    const uuids=deletedRecords.map(r=>r.id).filter(i=>i&&String(i).includes('-'));
-    // Fallback: any remaining by firm name (catches edge cases)
-    const nonUUID=deletedRecords.filter(r=>!String(r.id).includes('-'));
-    const firms=nonUUID.map(r=>r.firm).filter(Boolean);
-    let ok=true;
-    if(uuids.length){const {error}=await sb.from('records').update({is_deleted:true}).in('id',uuids);if(error){console.error('delete by id:',error);ok=false;}}
-    if(firms.length){const {error}=await sb.from('records').update({is_deleted:true}).in('firm',firms);if(error){console.error('delete by firm:',error);ok=false;}}
+    const ok=await db_softDelete(ids);
     if(ok) showToast(`${n} record${n>1?'s':''} deleted`,'red');
-    else showToast('Delete may have partially failed — check console','amber');
+    else showToast('Delete may not have persisted — check connection','amber');
   } else {
-    showToast(`${n} record${n>1?'s':''} removed (connect Supabase to persist)`,'amber');
+    showToast(`${n} record${n>1?'s':''} removed locally`,'amber');
   }
 }
 function queueOne(id){const r=currentData.find(x=>x.id===id);if(r)alert(`"${r.name} · ${r.firm}" queued. Est. 3 credits (~$0.05).`);}
@@ -1366,14 +1395,7 @@ function renderFinal(){
 async function removeFromFinal(id){
   finalList=finalList.filter(x=>x.id!==id);
   renderFinal();
-  if(sbReady()){
-    if(String(id).includes('-')){
-      await getSB().from('records').update({in_final_list:false}).eq('id',id);
-    } else {
-      const r=SEED.find(x=>x.id==id);
-      if(r) await getSB().from('records').update({in_final_list:false}).eq('firm',r.firm);
-    }
-  }
+  if(sbReady()) await db_updateRecord(id,{in_final_list:false});
   showToast('Removed from Finalized List','amber');
 }
 function toggleFinalAll(cb){document.querySelectorAll('#finalBody input[type=checkbox]').forEach(c=>c.checked=cb.checked);}
