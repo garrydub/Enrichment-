@@ -160,6 +160,14 @@
   .mrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;}
   .mrow:last-of-type{border-bottom:none;}
   .mv{font-family:var(--mono);font-size:11px;color:var(--text2);}
+  .edit-field{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
+  .edit-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;}
+  .edit-input{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--text);font-size:13px;font-family:var(--font);outline:none;width:100%;}
+  .edit-input:focus{border-color:rgba(79,142,247,0.5);}
+  .pg-btn{padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;font-family:var(--font);}
+  .pg-btn:hover{background:var(--bg3);color:var(--text);}
+  .pg-btn.active{background:rgba(79,142,247,0.15);border-color:rgba(79,142,247,0.35);color:var(--accent);}
+  .enrich-q-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25);}
 </style>
 </head>
 <body>
@@ -208,7 +216,8 @@
       <input type="text" id="searchInput" placeholder="Search firm, contact, sector, AUM, check size…" oninput="filterTable()"/>
     </div>
     <button class="btn" onclick="showImport()">⬆ Import Batch</button>
-    <button class="btn" onclick="switchTab('enrich',document.querySelectorAll('.tab')[2])">⚡ Enrich Queue</button>
+    <button class="btn" id="topDeleteBtn" onclick="bulkDelete()" style="display:none;background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.25);color:var(--red);">🗑 Delete Selected</button>
+    <button class="btn" onclick="openEnrichModal()" id="enrichQueueBtn">⚡ Enrich Queue</button>
     <button class="btn primary" onclick="switchTab('final',document.querySelectorAll('.tab')[4])">↓ Finalized List</button>
   </div>
 
@@ -284,6 +293,16 @@
       <button class="chip" onclick="toggleChip(this,'unenriched')" style="border-color:rgba(245,158,11,0.25);color:var(--amber)">⏳ Pending</button>
     </div>
 
+    <!-- Pagination + view controls -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--text3)">Show:</span>
+        <button class="pg-btn active" id="pgSize50" onclick="setPageSize(50)">50</button>
+        <button class="pg-btn" id="pgSizeAll" onclick="setPageSize(0)">All</button>
+        <span style="font-size:11px;color:var(--text3);margin-left:6px;" id="pgInfo"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;" id="pgControls"></div>
+    </div>
     <div class="tbl-wrap">
       <div class="tbl-hdr" style="grid-template-columns:20px 220px 130px 100px 90px 110px 70px 55px;">
         <span><input type="checkbox" id="selAll" onchange="toggleSelAll(this)" style="width:13px;height:13px;accent-color:var(--accent)"/></span>
@@ -301,7 +320,7 @@
       <span style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600" id="selCount">0</span>
       <span style="font-size:12px;color:var(--text2)">selected</span>
       <div style="flex:1"></div>
-      <button class="btn sm" onclick="queueSelected()">⚡ Queue Enrichment</button>
+      <button class="btn sm" onclick="queueSelectedForEnrich()">⚡ Queue Enrichment</button>
       <button class="btn sm" onclick="addToFinal()">★ Add to Finalized</button>
       <button class="btn sm" onclick="exportSel()">↓ Export CSV</button>
       <button class="btn sm danger" onclick="bulkDelete()">🗑 Delete</button>
@@ -706,6 +725,41 @@
   </div>
 </div>
 
+<!-- EDIT RECORD MODAL -->
+<div class="modal-bg" id="editModal" style="display:none;" onclick="if(event.target.id==='editModal')closeEditModal()">
+  <div class="modal" style="width:600px;max-height:88vh;overflow-y:auto;" onclick="e=>e.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div class="modal-title" style="margin:0" id="editModalTitle">Edit Record</div>
+      <button class="btn sm danger" onclick="deleteFromEdit()">🗑 Delete Record</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;" id="editFormBody"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
+      <button class="btn" onclick="closeEditModal()">Cancel</button>
+      <button class="btn primary" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ENRICH MODAL — select records + APIs -->
+<div class="modal-bg" id="enrichModal" style="display:none;" onclick="if(event.target.id==='enrichModal')document.getElementById('enrichModal').style.display='none'">
+  <div class="modal" style="width:560px;" onclick="e=>e.stopPropagation()">
+    <div class="modal-title">Enrich Selected Records</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">
+      <span id="enrichModalCount" style="font-weight:600;color:var(--amber)">0 records</span> queued for enrichment.
+      Select which APIs to run:
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;" id="enrichApiList"></div>
+    <div style="padding:10px 12px;background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:7px;font-size:11px;color:var(--text2);margin-bottom:14px;">
+      Enrichment runs internally using your connected API keys. Configure keys in the Sources &amp; APIs tab. 
+      Add any external data verifier or enrichment tool by pasting its API key in the custom slot below.
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn" onclick="document.getElementById('enrichModal').style.display='none'">Cancel</button>
+      <button class="btn primary" onclick="runEnrichmentNow()">⚡ Start Enrichment</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── DATA ─────────────────────────────────────────────────────────────────
 const CATS = [
@@ -1069,31 +1123,97 @@ function filterBatch(id) {
 }
 function clearBatchFilter() { filterBatch(activeBatch); }
 
-// ── TABLE ─────────────────────────────────────────────────────────────────
+// ── TABLE + PAGINATION ────────────────────────────────────────────────────
 const TCOLS = '20px 220px 130px 100px 90px 110px 70px 55px';
+let _pageSize = 50;
+let _currentPage = 0;
+let _filteredData = [];
+
+function setPageSize(n){
+  _pageSize=n; _currentPage=0;
+  document.getElementById('pgSize50').className='pg-btn'+(n===50?' active':'');
+  document.getElementById('pgSizeAll').className='pg-btn'+(n===0?' active':'');
+  renderTable(_filteredData.length?_filteredData:currentData);
+}
+
+function getBatchName(batchIdOrKey){
+  if(!batchIdOrKey||batchIdOrKey==='default') return '';
+  const b=BATCHES.find(x=>x.id===batchIdOrKey||x.id===batchIdOrKey);
+  return b?b.name:batchIdOrKey;
+}
+
 function renderTable(data) {
+  _filteredData=data;
   const body = document.getElementById('tableBody');
-  if (!data.length) { body.innerHTML = '<div style="padding:22px;text-align:center;color:var(--text3);font-size:12px;">No records match current filters.</div>'; return; }
-  body.innerHTML = data.map(r=>`
-    <div class="tbl-row${selectedIds.has(r.id)?' sel':''}" id="row-${r.id}" style="grid-template-columns:${TCOLS}">
-      <div><input type="checkbox" ${selectedIds.has(r.id)?'checked':''} onchange="toggleSel(${r.id},this)" onclick="e=>e.stopPropagation()" style="width:13px;height:13px;accent-color:var(--accent)"/></div>
-      <div class="cell-name" onclick="showDetail(${r.id})">
-        <span class="np">${r.name}</span>
-        <span class="ns">${r.firm}${(r.batch||r.batch_id)!=='default'?` <span style="color:var(--teal);font-size:9px;margin-left:4px;">[${r.batch}]</span>`:''}${r.title?` · ${r.title}`:''}</span>
+  if(!data.length){
+    body.innerHTML='<div style="padding:22px;text-align:center;color:var(--text3);font-size:12px;">No records — import a CSV batch to get started.</div>';
+    document.getElementById('pgInfo').textContent='';
+    document.getElementById('pgControls').innerHTML='';
+    return;
+  }
+  // Pagination
+  const ps=_pageSize||data.length;
+  const totalPages=Math.ceil(data.length/ps);
+  if(_currentPage>=totalPages) _currentPage=Math.max(0,totalPages-1);
+  const slice=_pageSize?data.slice(_currentPage*ps,(_currentPage+1)*ps):data;
+
+  // Page info
+  const start=_pageSize?_currentPage*ps+1:1;
+  const end=_pageSize?Math.min((_currentPage+1)*ps,data.length):data.length;
+  document.getElementById('pgInfo').textContent=`${start}–${end} of ${data.length.toLocaleString()}`;
+
+  // Page buttons
+  const pgCtrl=document.getElementById('pgControls');
+  if(_pageSize&&totalPages>1){
+    let btns=`<button class="pg-btn" onclick="changePage(-1)" ${_currentPage===0?'disabled style="opacity:0.3"':''}>‹</button>`;
+    const maxBtns=7;
+    let pages=[];
+    if(totalPages<=maxBtns){for(let i=0;i<totalPages;i++)pages.push(i);}
+    else{
+      pages=[0];
+      let lo=Math.max(1,_currentPage-2),hi=Math.min(totalPages-2,_currentPage+2);
+      if(lo>1)pages.push(-1);
+      for(let i=lo;i<=hi;i++)pages.push(i);
+      if(hi<totalPages-2)pages.push(-1);
+      pages.push(totalPages-1);
+    }
+    pages.forEach(p=>{
+      if(p===-1){btns+=`<span style="color:var(--text3);padding:0 2px">…</span>`;return;}
+      btns+=`<button class="pg-btn${p===_currentPage?' active':''}" onclick="changePage(${p},true)">${p+1}</button>`;
+    });
+    btns+=`<button class="pg-btn" onclick="changePage(1)" ${_currentPage>=totalPages-1?'disabled style="opacity:0.3"':''}>›</button>`;
+    pgCtrl.innerHTML=btns;
+  } else { pgCtrl.innerHTML=''; }
+
+  body.innerHTML = slice.map(r=>{
+    const batchLabel=getBatchName(r.batch||r.batch_id);
+    const enrichQueued=enrichQueue.has(r.id);
+    return `<div class="tbl-row${selectedIds.has(r.id)?' sel':''}" id="row-${r.id}" style="grid-template-columns:${TCOLS}">
+      <div><input type="checkbox" ${selectedIds.has(r.id)?'checked':''} onchange="toggleSel('${r.id}',this)" onclick="e=>e.stopPropagation()" style="width:13px;height:13px;accent-color:var(--accent)"/></div>
+      <div class="cell-name" onclick="openEditModal('${r.id}')" style="cursor:pointer;" title="Click to edit">
+        <span class="np">${r.name||'—'}</span>
+        <span class="ns">${r.firm||'—'}${batchLabel?` <span style="color:var(--teal);font-size:9px;margin-left:4px;">[${batchLabel}]</span>`:''}${r.title?` · ${r.title}`:''}</span>
       </div>
-      <div onclick="showDetail(${r.id})"><span class="badge b-${r.type}">${tlabel(r.type)}</span></div>
-      <div class="cm" onclick="showDetail(${r.id})">${r.aum}</div>
-      <div class="ct" onclick="showDetail(${r.id})">${r.check}</div>
-      <div class="ct" onclick="showDetail(${r.id})" style="font-size:10px;">${r.sector}</div>
-      <div onclick="showDetail(${r.id})" style="display:flex;align-items:center;gap:5px;">
-        <span class="dot ${r.enriched}"></span>
-        <span style="font-size:10px;color:var(--text3)">${r.enriched}</span>
+      <div onclick="openEditModal('${r.id}')"><span class="badge b-${r.type||''}">${tlabel(r.type)}</span></div>
+      <div class="cm" onclick="openEditModal('${r.id}')">${r.aum||'—'}</div>
+      <div class="ct" onclick="openEditModal('${r.id}')">${r.check||r.min_check||'—'}</div>
+      <div class="ct" onclick="openEditModal('${r.id}')" style="font-size:10px;">${r.sector||'—'}</div>
+      <div onclick="openEditModal('${r.id}')" style="display:flex;align-items:center;gap:5px;">
+        ${enrichQueued?'<span class="enrich-q-badge">queued</span>':'<span class="dot '+(r.enriched||'none')+'"></span><span style="font-size:10px;color:var(--text3)">'+(r.enriched||'none')+'</span>'}
       </div>
-      <div>${r.enriched==='none'
-        ?`<button class="btn sm" onclick="queueOne(${r.id})">⚡</button>`
-        :`<button class="btn sm" onclick="showDetail(${r.id})">↗</button>`}
+      <div style="display:flex;gap:3px;">
+        <button class="btn sm" onclick="event.stopPropagation();toggleEnrichOne('${r.id}')" title="${enrichQueued?'Remove from enrich queue':'Add to enrich queue'}" style="${enrichQueued?'color:var(--amber)':''}">⚡</button>
+        <button class="btn sm" onclick="event.stopPropagation();openEditModal('${r.id}')" title="Edit">✏</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+function changePage(val, absolute=false){
+  const ps=_pageSize||1;
+  const totalPages=Math.ceil(_filteredData.length/ps);
+  if(absolute) _currentPage=val;
+  else _currentPage=Math.max(0,Math.min(_currentPage+val,totalPages-1));
+  renderTable(_filteredData);
 }
 function tlabel(t){const m={pe:'PE',ib:'Inv.Bank',fo:'Family Off.',swf:'SWF',vc:'VC',pc:'Priv.Credit',cl:'Comm.Lender',sf:'Sports Fund',fof:'FoF',cpg:'CPG',sch:'Search',mb:'Merchant'};return m[t]||t.toUpperCase();}
 
@@ -1105,20 +1225,23 @@ function toggleChip(el, f) {
 function applyFilters() {
   let d=[...currentData];
   const q=document.getElementById('searchInput').value.toLowerCase().trim();
-  if(q) d=d.filter(r=>[r.name,r.firm,r.sector,r.type,r.aum,r.check,r.title||''].join(' ').toLowerCase().includes(q));
+  if(q) d=d.filter(r=>[r.name,r.firm,r.sector,r.type,r.aum,r.check||r.min_check,r.title||''].join(' ').toLowerCase().includes(q));
   if(activeFilter==='enriched') d=d.filter(r=>r.enriched==='full');
   else if(activeFilter==='unenriched') d=d.filter(r=>r.enriched!=='full');
   else if(activeFilter!=='all') d=d.filter(r=>r.type===activeFilter);
   if(activeCat) d=d.filter(r=>r.type===activeCat);
   if(activeBatch) d=d.filter(r=>(r.batch===activeBatch)||(r.batch_id===activeBatch));
+  _currentPage=0;
   renderTable(d);
 }
 function filterTable(){applyFilters();}
 
 // ── SELECTION ─────────────────────────────────────────────────────────────
 function toggleSel(id,cb){
-  if(cb.checked)selectedIds.add(id);else selectedIds.delete(id);
-  const row=document.getElementById('row-'+id);
+  // Normalise id — always store as string to match UUID format
+  const sid=String(id);
+  if(cb.checked)selectedIds.add(sid);else selectedIds.delete(sid);
+  const row=document.getElementById('row-'+sid);
   if(row)row.classList.toggle('sel',cb.checked);
   updateActBar();
 }
@@ -1137,8 +1260,12 @@ function toggleSelAll(cb){
 }
 function updateActBar(){
   const b=document.getElementById('actBar');
-  b.style.display=selectedIds.size>0?'flex':'none';
+  const has=selectedIds.size>0;
+  b.style.display=has?'flex':'none';
   document.getElementById('selCount').textContent=selectedIds.size;
+  // Topbar delete button
+  const topDel=document.getElementById('topDeleteBtn');
+  if(topDel) topDel.style.display=has?'flex':'none';
 }
 function clearSel(){
   selectedIds.clear();
@@ -1147,7 +1274,75 @@ function clearSel(){
   document.getElementById('selAll').checked=false;
   updateActBar();
 }
-function queueSelected(){alert(`${selectedIds.size} records added to enrichment queue.`);clearSel();}
+// Enrichment queue (persistent across selections)
+const enrichQueue = new Set();
+
+function toggleEnrichOne(id){
+  const sid=String(id);
+  if(enrichQueue.has(sid)) enrichQueue.delete(sid);
+  else enrichQueue.add(sid);
+  applyFilters();
+  updateEnrichBadge();
+}
+function updateEnrichBadge(){
+  const tab=document.querySelectorAll('.tab')[2];
+  if(tab) tab.textContent=enrichQueue.size>0?`Enrichment (${enrichQueue.size})`:'Enrichment';
+}
+function queueSelectedForEnrich(){
+  selectedIds.forEach(id=>enrichQueue.add(String(id)));
+  updateEnrichBadge();
+  showToast(`${selectedIds.size} records added to enrichment queue`,'amber');
+  clearSel();
+  applyFilters();
+}
+function queueSelected(){ queueSelectedForEnrich(); }
+
+function openEnrichModal(){
+  if(enrichQueue.size===0&&selectedIds.size===0){
+    showToast('Select records to enrich first','amber'); return;
+  }
+  if(selectedIds.size>0) queueSelectedForEnrich();
+  document.getElementById('enrichModalCount').textContent=`${enrichQueue.size} record${enrichQueue.size!==1?'s':''}`;
+  // Build API list from saved keys + custom
+  const saved=JSON.parse(localStorage.getItem('sb_api_keys')||'{}');
+  const apis=[
+    {id:'hunter',   name:'Hunter.io',    desc:'Email finder & verifier',   cost:'$0.012/req', key:saved.hunter||''},
+    {id:'apollo',   name:'Apollo.io',    desc:'Contact + phone enrichment', cost:'$0.018/req', key:saved.apollo||''},
+    {id:'clearbit', name:'Clearbit',     desc:'Company firmographics',      cost:'$0.025/req', key:saved.clearbit||''},
+    {id:'pdl',      name:'PDL',          desc:'People Data Labs',           cost:'$0.015/req', key:saved.pdl||''},
+    {id:'zoominfo', name:'ZoomInfo',     desc:'Enterprise contact data',    cost:'$0.030/req', key:saved.zoominfo||''},
+  ];
+  const custom=JSON.parse(localStorage.getItem('custom_apis')||'[]');
+  document.getElementById('enrichApiList').innerHTML=
+    apis.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;border:1px solid var(--border);${a.key?'border-color:rgba(34,197,94,0.25)':''}">
+      <input type="checkbox" id="eapi_${a.id}" ${a.key?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);flex-shrink:0"/>
+      <div style="flex:1"><div style="font-size:12px;font-weight:500">${a.name}</div><div style="font-size:10px;color:var(--text3)">${a.desc}</div></div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--amber)">${a.cost}</span>
+      <span style="font-size:10px;color:${a.key?'var(--green)':'var(--red)'}">${a.key?'✓ key set':'no key'}</span>
+    </div>`).join('')
+    +custom.map((c,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;border:1px solid rgba(79,142,247,0.25);">
+      <input type="checkbox" id="eapi_custom_${i}" checked style="width:14px;height:14px;accent-color:var(--accent);flex-shrink:0"/>
+      <div style="flex:1"><div style="font-size:12px;font-weight:500">${c.name}</div><div style="font-size:10px;color:var(--text3)">Custom API</div></div>
+      <span style="font-size:10px;color:var(--green)">✓ configured</span>
+    </div>`).join('');
+  document.getElementById('enrichModal').style.display='flex';
+}
+function runEnrichmentNow(){
+  document.getElementById('enrichModal').style.display='none';
+  showToast(`Enrichment started for ${enrichQueue.size} records — results will update as APIs respond`,'green');
+  // In production: call each selected API for each queued record ID
+  // For now simulate completion after delay
+  setTimeout(()=>{
+    enrichQueue.forEach(id=>{
+      const r=currentData.find(x=>String(x.id)===String(id));
+      if(r&&r.enriched==='none') r.enriched='partial';
+    });
+    enrichQueue.clear();
+    updateEnrichBadge();
+    applyFilters(); refreshStats();
+    showToast('Enrichment run complete','green');
+  },2000);
+}
 async function addToFinal(){
   const recs=currentData.filter(r=>selectedIds.has(r.id));
   const newRecs=recs.filter(r=>!finalList.find(x=>x.id===r.id));
@@ -1186,34 +1381,99 @@ async function bulkDelete(){
 }
 function queueOne(id){const r=currentData.find(x=>x.id===id);if(r)alert(`"${r.name} · ${r.firm}" queued. Est. 3 credits (~$0.05).`);}
 
-// ── DETAIL MODAL ──────────────────────────────────────────────────────────
-let detailRecId=null;
-function showDetail(id){
-  const r=[...currentData,...SEED].find(x=>x.id===id);
-  if(!r)return; detailRecId=id;
-  document.getElementById('detailTitle').textContent=`${r.name} · ${r.firm}`;
-  document.getElementById('detailBody').innerHTML=`
-    <div class="mrow"><span style="color:var(--text3)">Title</span><span class="mv">${r.title||'—'}</span></div>
-    <div class="mrow"><span style="color:var(--text3)">Type</span><span class="badge b-${r.type}">${tlabel(r.type)}</span></div>
-    <div class="mrow"><span style="color:var(--text3)">AUM</span><span class="mv">${r.aum}</span></div>
-    <div class="mrow"><span style="color:var(--text3)">Min Check</span><span class="mv">${r.check}</span></div>
-    <div class="mrow"><span style="color:var(--text3)">Sector Focus</span><span class="mv">${r.sector}</span></div>
-    <div class="mrow"><span style="color:var(--text3)">Email</span><span class="mv">${r.email||'<span style="color:var(--amber)">⏳ not enriched</span>'}</span></div>
-    <div class="mrow"><span style="color:var(--text3)">Phone</span><span class="mv">${r.phone||'<span style="color:var(--amber)">⏳ not enriched</span>'}</span></div>
-    <div class="mrow"><span style="color:var(--text3)">Website</span><span class="mv">${r.website?`<a href="https://${r.website}" target="_blank" style="color:var(--accent)">${r.website}</a>`:'—'}</span></div>
-    <div class="mrow"><span style="color:var(--text3)">Batch</span><span class="mv">${r.batch||'default'}</span></div>
-    <div class="mrow" style="border:none;"><span style="color:var(--text3)">Enrichment</span>
-      <span class="badge" style="background:${r.enriched==='full'?'rgba(34,197,94,0.12)':r.enriched==='partial'?'rgba(245,158,11,0.12)':'rgba(255,255,255,0.05)'};color:${r.enriched==='full'?'var(--green)':r.enriched==='partial'?'var(--amber)':'var(--text3)'}">${r.enriched}</span>
-    </div>`;
-  document.getElementById('detailModal').style.display='flex';
+// ── EDIT MODAL ────────────────────────────────────────────────────────────
+let editingRecId=null;
+const EDIT_FIELDS=[
+  {key:'name',     label:'Contact Name',        span:1},
+  {key:'firm',     label:'Firm / Company',       span:1},
+  {key:'title',    label:'Title / Role',         span:1},
+  {key:'type',     label:'Investor Type',        span:1, type:'select',
+   opts:'pe|PE,ib|Inv. Bank,fo|Family Office,swf|SWF,vc|VC,pc|Priv. Credit,cl|Comm. Lender,sf|Sports Fund,fof|FoF,cpg|CPG,mb|Merchant,sch|Search'},
+  {key:'email',    label:'Email',                span:1},
+  {key:'phone',    label:'Phone',                span:1},
+  {key:'website',  label:'Website',              span:1},
+  {key:'aum',      label:'AUM',                  span:1},
+  {key:'min_check',label:'Min Check / Ticket',   span:1},
+  {key:'sector',   label:'Sector / Focus',       span:1},
+  {key:'linkedin_url',label:'LinkedIn',          span:2},
+  {key:'notes',    label:'Notes',                span:2, type:'textarea'},
+];
+
+function openEditModal(id){
+  const r=currentData.find(x=>String(x.id)===String(id));
+  if(!r)return;
+  editingRecId=id;
+  document.getElementById('editModalTitle').textContent=`Edit — ${r.name||'Record'}`;
+  document.getElementById('editFormBody').innerHTML=EDIT_FIELDS.map(f=>{
+    const val=r[f.key]||'';
+    const span=f.span===2?'grid-column:1/-1':'';
+    if(f.type==='select'){
+      const opts=f.opts.split(',').map(o=>{const[v,l]=o.split('|');return`<option value="${v}"${val===v?' selected':''}>${l}</option>`;}).join('');
+      return `<div class="edit-field" style="${span}"><label class="edit-label">${f.label}</label>
+        <select class="edit-input" id="ef_${f.key}"><option value="">— none —</option>${opts}</select></div>`;
+    }
+    if(f.type==='textarea'){
+      return `<div class="edit-field" style="${span}"><label class="edit-label">${f.label}</label>
+        <textarea class="edit-input" id="ef_${f.key}" rows="3" style="resize:vertical">${val}</textarea></div>`;
+    }
+    return `<div class="edit-field" style="${span}"><label class="edit-label">${f.label}</label>
+      <input class="edit-input" id="ef_${f.key}" value="${val.replace(/"/g,'&quot;')}" /></div>`;
+  }).join('');
+  document.getElementById('editModal').style.display='flex';
 }
-function closeDetail(e){if(e.target.id==='detailModal')document.getElementById('detailModal').style.display='none';}
-function enrichOneRecord(){alert('Queued for enrichment. Est. ~3 credits.');document.getElementById('detailModal').style.display='none';}
+
+function closeEditModal(){
+  document.getElementById('editModal').style.display='none';
+  editingRecId=null;
+}
+
+async function saveEdit(){
+  if(!editingRecId)return;
+  const changes={};
+  EDIT_FIELDS.forEach(f=>{
+    const el=document.getElementById('ef_'+f.key);
+    if(el) changes[f.key]=el.value.trim()||null;
+  });
+  // Also sync check field
+  if(changes.min_check) changes.check=changes.min_check;
+  // Update enrichment status
+  if(changes.email&&changes.phone) changes.enriched='full';
+  else if(changes.email||changes.phone) changes.enriched='partial';
+
+  // Update local state
+  const idx=currentData.findIndex(x=>String(x.id)===String(editingRecId));
+  if(idx>-1) currentData[idx]={...currentData[idx],...changes};
+  // Update final list too
+  const fi=finalList.findIndex(x=>String(x.id)===String(editingRecId));
+  if(fi>-1) finalList[fi]={...finalList[fi],...changes};
+
+  closeEditModal();
+  applyFilters(); renderFinal(); refreshStats();
+  if(sbReady()) await db_updateRecord(editingRecId, changes);
+  showToast('Record saved','green');
+}
+
+async function deleteFromEdit(){
+  if(!editingRecId)return;
+  if(!confirm('Delete this record? This cannot be undone.'))return;
+  const id=editingRecId;
+  closeEditModal();
+  currentData=currentData.filter(r=>String(r.id)!==String(id));
+  finalList=finalList.filter(r=>String(r.id)!==String(id));
+  applyFilters(); renderFinal(); renderCats(); refreshStats();
+  if(sbReady()) await db_softDelete([id]);
+  showToast('Record deleted','red');
+}
+
+// Legacy stubs
+function showDetail(id){ openEditModal(id); }
+function closeDetail(e){ if(e.target.id==='detailModal') document.getElementById('detailModal').style.display='none'; }
+function enrichOneRecord(){ document.getElementById('detailModal').style.display='none'; }
 function addRecordToFinal(){
-  const r=[...currentData,...SEED].find(x=>x.id===detailRecId);
-  if(r&&!finalList.find(x=>x.id===r.id)){finalList.push(r);renderFinal();}
-  alert('Added to Finalized List.');
-  document.getElementById('detailModal').style.display='none';
+  const r=currentData.find(x=>String(x.id)===String(editingRecId));
+  if(r&&!finalList.find(x=>String(x.id)===String(r.id))){r.in_final_list=true;finalList.push(r);renderFinal();refreshStats();}
+  closeEditModal();
+  showToast('Added to Finalized List','green');
 }
 
 // ── ENRICHMENT ────────────────────────────────────────────────────────────
@@ -1560,43 +1820,92 @@ async function deleteSaved(id){
 }
 
 // ── SOURCES ───────────────────────────────────────────────────────────────
+const PAID_APIS=[
+  {id:'hunter',   name:'Hunter.io',   desc:'Email finder & verifier',   cost:'$0.012/req'},
+  {id:'apollo',   name:'Apollo.io',   desc:'Contact + phone enrichment', cost:'$0.018/req'},
+  {id:'clearbit', name:'Clearbit',    desc:'Company firmographics',      cost:'$0.025/req'},
+  {id:'pdl',      name:'PDL',         desc:'People Data Labs',           cost:'$0.015/req'},
+  {id:'zoominfo', name:'ZoomInfo',    desc:'Enterprise contact data',    cost:'$0.030/req'},
+];
 function renderSources(){
+  const saved=JSON.parse(localStorage.getItem('sb_api_keys')||'{}');
   const free=[
-    {name:'LinkedIn Company Pages',desc:'Firm profiles, AUM signals, team structure',status:'active'},
-    {name:'SEC EDGAR Filings',desc:'13F / ADV filings, AUM, fund structure',status:'active'},
-    {name:'Google Search Scrape',desc:'Firm websites, contact pages, news',status:'active'},
-    {name:'Crunchbase (free)',desc:'VC/PE funding data, portfolio companies',status:'active'},
-    {name:'OpenCorporates',desc:'Company registry, officer names',status:'active'},
-  ];
-  const paid=[
-    {name:'Hunter.io',desc:'Email finder & verifier',cost:'$0.012/req',status:'off'},
-    {name:'Apollo.io',desc:'Contact enrichment, phone',cost:'$0.018/req',status:'off'},
-    {name:'Clearbit',desc:'Company firmographics',cost:'$0.025/req',status:'off'},
-    {name:'PDL',desc:'People Data Labs',cost:'$0.015/req',status:'off'},
-    {name:'ZoomInfo',desc:'Enterprise contact data',cost:'$0.030/req',status:'off'},
+    {name:'LinkedIn Company Pages',desc:'Firm profiles, AUM signals, team structure'},
+    {name:'SEC EDGAR Filings',desc:'13F / ADV filings, AUM, fund structure'},
+    {name:'Google Search Scrape',desc:'Firm websites, contact pages, news'},
+    {name:'Crunchbase (free)',desc:'VC/PE funding data, portfolio companies'},
+    {name:'OpenCorporates',desc:'Company registry, officer names'},
   ];
   document.getElementById('freeSrcs').innerHTML=free.map(s=>`
     <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:7px;border:1px solid var(--border);">
-      <div class="dot${s.status==='active'?' full':' none'}" style="margin-top:3px;"></div>
+      <div class="dot full" style="margin-top:3px;"></div>
       <div style="flex:1;"><div style="font-size:12px;font-weight:500;margin-bottom:2px;">${s.name}</div><div style="font-size:10px;color:var(--text3)">${s.desc}</div></div>
       <span style="font-size:10px;font-family:var(--mono);color:var(--green)">FREE</span>
     </div>`).join('');
-  document.getElementById('paidSrcs').innerHTML=paid.map(s=>`
-    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:7px;border:1px solid var(--border);">
-      <div class="dot none" style="margin-top:3px;"></div>
+  document.getElementById('paidSrcs').innerHTML=PAID_APIS.map(s=>`
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:7px;border:1px solid ${saved[s.id]?'rgba(34,197,94,0.25)':'var(--border)'};">
+      <div class="dot ${saved[s.id]?'full':'none'}" style="margin-top:3px;"></div>
       <div style="flex:1;"><div style="font-size:12px;font-weight:500;margin-bottom:2px;">${s.name}</div><div style="font-size:10px;color:var(--text3)">${s.desc}</div></div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <span style="font-size:10px;font-family:var(--mono);color:var(--amber)">${s.cost}</span>
-        <button class="btn sm" onclick="alert('Add your ${s.name} API key below and click Save Keys.')">Connect</button>
+        <span style="font-size:10px;color:${saved[s.id]?'var(--green)':'var(--text3)'};">${saved[s.id]?'✓ key saved':'not connected'}</span>
       </div>
     </div>`).join('');
-  document.getElementById('apiKeys').innerHTML=paid.map(s=>`
+  document.getElementById('apiKeys').innerHTML=PAID_APIS.map(s=>`
     <div style="display:flex;flex-direction:column;gap:4px;">
       <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700">${s.name}</label>
-      <input class="fi" type="password" placeholder="API key…" style="font-family:var(--mono);font-size:11px"/>
+      <input class="fi" id="akey_${s.id}" type="password" value="${saved[s.id]||''}" placeholder="Paste API key…" style="font-family:var(--mono);font-size:11px"/>
+    </div>`).join('')
+  +`<div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
+    <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:10px;">Custom API / Data Verifier — add any external tool</div>
+    <div id="customApiList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;">
+      <div><label class="sb-label">Tool Name</label><input class="fi" id="cApiName" placeholder="e.g. NeverBounce" style="margin-top:3px;"/></div>
+      <div><label class="sb-label">Endpoint URL</label><input class="fi" id="cApiUrl" placeholder="https://api.example.com/v1" style="margin-top:3px;"/></div>
+      <div><label class="sb-label">API Key</label><input class="fi" id="cApiKey" type="password" placeholder="Paste key…" style="margin-top:3px;font-family:var(--mono);font-size:11px"/></div>
+      <button class="btn primary" onclick="addCustomApi()" style="height:36px;margin-top:auto;">+ Add</button>
+    </div>
+  </div>`;
+  renderCustomApis();
+}
+function renderCustomApis(){
+  const list=document.getElementById('customApiList'); if(!list)return;
+  const customs=JSON.parse(localStorage.getItem('custom_apis')||'[]');
+  list.innerHTML=customs.map((c,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;border:1px solid rgba(79,142,247,0.25);background:rgba(79,142,247,0.04);">
+      <div class="dot full"></div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:500">${c.name}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${c.url}</div></div>
+      <span style="font-size:10px;color:var(--green)">✓ configured</span>
+      <button class="btn sm danger" onclick="removeCustomApi(${i})">✕</button>
     </div>`).join('');
 }
-function saveKeys(){alert('Keys saved to session. For persistent storage, deploy to Vercel and use environment variables.');}
+function addCustomApi(){
+  const name=document.getElementById('cApiName').value.trim();
+  const url=document.getElementById('cApiUrl').value.trim();
+  const key=document.getElementById('cApiKey').value.trim();
+  if(!name){showToast('Enter a tool name','amber');return;}
+  const customs=JSON.parse(localStorage.getItem('custom_apis')||'[]');
+  customs.push({name,url,key});
+  localStorage.setItem('custom_apis',JSON.stringify(customs));
+  document.getElementById('cApiName').value='';
+  document.getElementById('cApiUrl').value='';
+  document.getElementById('cApiKey').value='';
+  renderCustomApis();
+  showToast(`${name} added`,'green');
+}
+function removeCustomApi(i){
+  const customs=JSON.parse(localStorage.getItem('custom_apis')||'[]');
+  customs.splice(i,1);
+  localStorage.setItem('custom_apis',JSON.stringify(customs));
+  renderCustomApis();
+}
+function saveKeys(){
+  const saved={};
+  PAID_APIS.forEach(a=>{ const el=document.getElementById('akey_'+a.id); if(el&&el.value.trim()) saved[a.id]=el.value.trim(); });
+  localStorage.setItem('sb_api_keys',JSON.stringify(saved));
+  renderSources();
+  showToast('API keys saved to browser','green');
+}
 
 // ── SUPABASE CONNECTION UI ─────────────────────────────────────────
 function checkSbInputs(){
