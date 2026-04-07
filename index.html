@@ -189,13 +189,13 @@
   </div>
 
   <div class="stats-bar">
-    <div class="stat-row"><span class="stat-label">Total records</span><span class="stat-val" id="totalRec">847</span></div>
-    <div class="stat-row"><span class="stat-label">Enriched</span><span class="stat-val hi" id="enrichedRec">312</span></div>
-    <div class="stat-row"><span class="stat-label">Sites verified</span><span class="stat-val" id="sitesVer">418 / 740</span></div>
-    <div class="stat-row"><span class="stat-label">Finalized / ready</span><span class="stat-val hi" id="finalRec">312</span></div>
+    <div class="stat-row"><span class="stat-label">Total records</span><span class="stat-val" id="totalRec">0</span></div>
+    <div class="stat-row"><span class="stat-label">Enriched</span><span class="stat-val hi" id="enrichedRec">0</span></div>
+    <div class="stat-row"><span class="stat-label">Sites verified</span><span class="stat-val" id="sitesVer">0 / 0</span></div>
+    <div class="stat-row"><span class="stat-label">Finalized / ready</span><span class="stat-val hi" id="finalRec">0</span></div>
     <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">
-      <div class="stat-row"><span class="stat-label">API credits used</span><span class="stat-val" id="creditsUsed">2,140</span></div>
-      <div class="stat-row"><span class="stat-label">Est. cost to date</span><span class="stat-val">~$38.50</span></div>
+      <div class="stat-row"><span class="stat-label">API credits used</span><span class="stat-val" id="creditsUsed">0</span></div>
+      <div class="stat-row"><span class="stat-label">Est. cost to date</span><span class="stat-val" id="estCost">$0.00</span></div>
     </div>
   </div>
 </aside>
@@ -412,9 +412,9 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">
-          <span style="color:var(--green)" id="siteOkCount">418</span> ok · 
-          <span style="color:var(--red)" id="siteBadCount">89</span> bad · 
-          <span style="color:var(--amber)" id="siteUncCount">233</span> unverified
+          <span style="color:var(--green)" id="siteOkCount">0</span> ok · 
+          <span style="color:var(--red)" id="siteBadCount">0</span> bad · 
+          <span style="color:var(--amber)" id="siteUncCount">0</span> unverified
         </div>
         <button class="btn sm" onclick="verifyBatch(10)">Verify Batch (10)</button>
         <button class="btn sm" onclick="verifyBatch(50)">Batch (50)</button>
@@ -460,19 +460,19 @@
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
         <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:6px;">Total Records</div>
-        <div style="font-size:22px;font-weight:600;font-family:var(--mono);" id="finalTotal">312</div>
+        <div style="font-size:22px;font-weight:600;font-family:var(--mono);" id="finalTotal">0</div>
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
         <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:6px;">With Email</div>
-        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--green);" id="finalEmail">289</div>
+        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--green);" id="finalEmail">0</div>
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
         <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:6px;">With Phone</div>
-        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--accent);" id="finalPhone">201</div>
+        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--accent);" id="finalPhone">0</div>
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;">
         <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:6px;">Site Verified</div>
-        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--teal);" id="finalSite">268</div>
+        <div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--teal);" id="finalSite">0</div>
       </div>
     </div>
 
@@ -723,45 +723,15 @@ const CATS = [
   {id:'sch', label:'Search Funds',       color:'#34d399', count:57 },
 ];
 
-const SEED = [
-  {id:1, name:'Michael Arougheti', title:'CEO & Co-Founder', firm:'Ares Management',     type:'pc',  aum:'$428B', check:'$50M+',  sector:'Credit / CRE',          email:'m.arougheti@ares.com',      phone:'310-555-0192', website:'ares.com',             enriched:'full',    score:98, batch:'default'},
-  {id:2, name:'David Bonderman',   title:'Founding Partner', firm:'TPG Capital',          type:'pe',  aum:'$224B', check:'$100M+', sector:'Sports / Media',         email:'',                          phone:'',            website:'tpg.com',              enriched:'none',    score:92, batch:'default'},
-  {id:3, name:'Ayesha Al-Hosani',  title:'Director, Alts',   firm:'Mubadala Investment',  type:'swf', aum:'$302B', check:'$25M+',  sector:'Infrastructure / Sports',email:'a.hosani@mubadala.ae',     phone:'+971-2-555-0134',website:'mubadala.ae',         enriched:'full',    score:97, batch:'default'},
-  {id:4, name:'Sarah Chen',        title:'Managing Partner', firm:'a16z',                 type:'vc',  aum:'$35B',  check:'$5M+',   sector:'Tech / Consumer',        email:'',                          phone:'',            website:'a16z.com',             enriched:'none',    score:71, batch:'default'},
-  {id:5, name:'James Coulter',     title:'Co-CEO',           firm:'TPG Growth',           type:'pe',  aum:'$139B', check:'$50M+',  sector:'Sports / Franchise',     email:'j.coulter@tpg.com',        phone:'415-555-0088',website:'tpggrowth.com',        enriched:'partial', score:94, batch:'default'},
-  {id:6, name:'Robert Reffkin',    title:'Founder & CEO',    firm:'Compass Family Off.',  type:'fo',  aum:'$8B',   check:'$1M+',   sector:'Real Estate / CRE',      email:'r.reffkin@compassfo.com',  phone:'212-555-0201',website:'compassfo.com',        enriched:'full',    score:86, batch:'default'},
-  {id:7, name:'Hiro Mizuno',       title:'Exec Managing Dir',firm:'GPIF Japan',           type:'swf', aum:'$1.5T', check:'$100M+', sector:'Global / Infra',         email:'',                          phone:'',            website:'gpif.go.jp',           enriched:'none',    score:88, batch:'default'},
-  {id:8, name:'Delia Rugina',      title:'Head of Alts',     firm:'Hollyfield Capital',   type:'fo',  aum:'$2.1B', check:'$5M+',   sector:'Sports / Media / CRE',   email:'d.rugina@hollyfield.com',  phone:'305-555-0077',website:'hollyfieldcap.com',    enriched:'full',    score:95, batch:'default'},
-  {id:9, name:'Marcus Webb',       title:'Partner',          firm:'Arctos Sports Partners',type:'sf', aum:'$7.1B', check:'$25M+',  sector:'Sports / Franchise',     email:'m.webb@arctos.com',        phone:'214-555-0143',website:'arctos.com',           enriched:'partial', score:99, batch:'default'},
-  {id:10,name:'Karen Karniol-T.',  title:'CIO',              firm:'Bridgewater Assoc.',   type:'fo',  aum:'$124B', check:'$10M+',  sector:'Macro / Multi-Asset',    email:'kkt@bridgewater.com',      phone:'203-555-0056',website:'bwater.com',           enriched:'full',    score:82, batch:'default'},
-  {id:11,name:'Steven Klein',      title:'Managing Director',firm:'Oaktree Capital',      type:'pc',  aum:'$179B', check:'$10M+',  sector:'Credit / Real Estate',   email:'s.klein@oaktree.com',      phone:'213-555-0099',website:'oaktreecapital.com',   enriched:'full',    score:91, batch:'default'},
-  {id:12,name:'Elena Vasquez',     title:'VP Investments',   firm:'Canyon Partners',      type:'pc',  aum:'$27B',  check:'$5M+',   sector:'CRE / Credit',           email:'e.vasquez@canyonpartners.com',phone:'310-555-0211',website:'canyonpartners.com', enriched:'partial', score:89, batch:'default'},
-  {id:13,name:'Theo Harrison',     title:'Partner',          firm:'Blue Owl Capital',     type:'pc',  aum:'$174B', check:'$25M+',  sector:'CRE / Infrastructure',   email:'t.harrison@blueowl.com',   phone:'212-555-0319',website:'blueowl.com',          enriched:'full',    score:93, batch:'default'},
-  {id:14,name:'Priya Nair',        title:'Principal',        firm:'32 Equity (NFL)',      type:'sf',  aum:'$3.2B', check:'$10M+',  sector:'Sports / Franchise',     email:'p.nair@32equity.com',      phone:'646-555-0441',website:'32equity.com',         enriched:'partial', score:99, batch:'default'},
-  {id:15,name:'Omar Al-Futtaim',   title:'Managing Director',firm:'Al-Futtaim Capital',   type:'fo',  aum:'$6.8B', check:'$5M+',   sector:'CRE / Sports / Infra',   email:'o.alfuttaim@alfuttaim.ae', phone:'+971-4-555-0082',website:'alfuttaim.com',      enriched:'full',    score:96, batch:'default'},
-];
+const SEED = [];
 
-const BATCHES = [
-  {id:'default', name:'Seed Database',         count:15,  date:'Apr 2026', color:'#4f8ef7'},
-  {id:'lenders', name:'740 Lenders List',      count:740, date:'Apr 2026', color:'#14b8a6'},
-];
+const BATCHES = [];
 
-const ENRICH_Q = [
-  {firm:'TPG Capital',         type:'pe',  aum:'$224B', sector:'Sports'},
-  {firm:'a16z',                type:'vc',  aum:'$35B',  sector:'Consumer'},
-  {firm:'GPIF Japan',          type:'swf', aum:'$1.5T', sector:'Global'},
-  {firm:'Macquarie Group',     type:'ib',  aum:'$772B', sector:'Infra'},
-  {firm:'Silver Lake Partners',type:'pe',  aum:'$102B', sector:'Tech / Sports'},
-];
+const ENRICH_Q = [];
 
-const SITE_DATA = Array.from({length:30}, (_,i) => {
-  const firms = ['Ares Management','Blue Owl Capital','Canyon Partners','Oaktree Capital','Arctos Sports','TPG Capital','Blackstone','KKR','Apollo Global','Carlyle Group','Brookfield AM','Vista Equity','General Atlantic','Thoma Bravo','Silver Lake','Advent International','Warburg Pincus','Leonard Green','Bain Capital','CVC Capital','EQT Partners','Permira','PAG Asia','Hillhouse Cap','MBK Partners','Affinity Equity','CPPIB','GIC Singapore','Temasek','Mubadala'];
-  const urls = ['ares.com','blueowl.com','canyonpartners.com','oaktreecapital.com','arctos.com','tpg.com','blackstone.com','kkr.com','apollo.com','carlyle.com','brookfield.com','vistaequitypartners.com','generalatlantic.com','thomabravo.com','silverlake.com','adventinternational.com','warburgpincus.com','leonardgreen.com','baincapital.com','cvc.com','eqt.se','permira.com','pagasia.com','hillhousecap.com','mbkpartners.com','affinityep.com','cppinvestments.com','gic.com.sg','temasek.com.sg','mubadala.ae'];
-  const statuses = ['ok','ok','ok','ok','bad','ok','ok','unverified','ok','bad','ok','unverified','ok','ok','bad','ok','ok','unverified','ok','ok','bad','ok','unverified','ok','ok','bad','ok','ok','unverified','ok'];
-  return {id:i+1, firm:firms[i], url:'https://'+urls[i], status:statuses[i], checked:statuses[i]==='ok'||statuses[i]==='bad'};
-});
+const SITE_DATA = [];
 
-const FINAL_LIST = SEED.filter(r => r.enriched === 'full' || r.enriched === 'partial');
+const FINAL_LIST = [];
 
 const COST_API = [
   {name:'Hunter.io',  cost:'$0.012', per1k:'$12.00', per10k:'$120', note:'Email find & verify. ~60–70% hit rate on capital markets contacts.'},
@@ -936,10 +906,38 @@ async function db_deleteTemplate(id){
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
+function refreshStats(){
+  // Sidebar counters — always computed from live data
+  const total = currentData.length;
+  const enriched = currentData.filter(r=>r.enriched==='full').length;
+  const inFinal = finalList.length;
+  const sitesOk = siteData.filter(s=>s.status==='ok').length;
+  const sitesBad = siteData.filter(s=>s.status==='bad').length;
+  const sitesUnv = siteData.filter(s=>s.status==='unverified'||s.status==='checking').length;
+  const siteTotal = siteData.length;
+
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('totalRec',     total.toLocaleString());
+  set('enrichedRec',  enriched.toLocaleString());
+  set('finalRec',     inFinal.toLocaleString());
+  set('sitesVer',     `${sitesOk} / ${siteTotal||0}`);
+  set('siteOkCount',  sitesOk);
+  set('siteBadCount', sitesBad);
+  set('siteUncCount', sitesUnv);
+  // Finalized summary cards
+  set('finalTotal',   inFinal);
+  set('finalEmail',   finalList.filter(r=>r.email).length);
+  set('finalPhone',   finalList.filter(r=>r.phone).length);
+  set('finalSite',    finalList.filter(r=>r.website).length);
+  // Credits used — computed from enrichment_log if available, else count enriched records
+  // (will be overwritten by db stats when Supabase loads)
+}
+
 function init() {
   renderCats(); renderBatches(); renderTable(currentData);
   renderEnrichQ(); renderVerifier(SITE_DATA); renderFinal();
   renderSources(); renderCostTable(); renderTemplateList();
+  refreshStats();
 }
 
 async function initWithDB(){
@@ -958,17 +956,8 @@ async function initWithDB(){
       if(match) dbIdMap.set(seed.id, match.id);
     });
   } else if(dbRecords && dbRecords.length === 0){
-    console.log('DB empty — seeding demo records...');
-    await db_insertRecords(SEED);
-    const fresh=await db_loadRecords();
-    if(fresh && fresh.length>0){
-      currentData=fresh;
-      SEED.forEach(seed=>{
-        const match=fresh.find(r=>r.firm===seed.firm&&r.name===seed.name);
-        if(match) dbIdMap.set(seed.id, match.id);
-      });
-      showToast('Database initialized','green');
-    }
+    // DB empty — nothing to load, wait for user to import
+    currentData = [];
   }
   if(dbBatches && dbBatches.length > 0){
     BATCHES.length=0; BATCHES.push(...dbBatches);
@@ -978,11 +967,15 @@ async function initWithDB(){
   }
   if(dbStats){
     const s = dbStats;
-    document.getElementById('totalRec').textContent   = (s.total_records||0).toLocaleString();
-    document.getElementById('enrichedRec').textContent= (s.fully_enriched||0).toLocaleString();
-    document.getElementById('finalRec').textContent   = (s.in_final_list||0).toLocaleString();
-    document.getElementById('sitesVer').textContent   = `${s.sites_verified||0} / ${(parseInt(s.sites_verified||0)+parseInt(s.sites_dead||0)+parseInt(s.sites_unverified||0))}`;
+    // Update credits/cost from DB log
+    const el=document.getElementById('creditsUsed');
+    const costEl=document.getElementById('estCost');
+    if(el&&s.total_credits_used!=null) el.textContent=(s.total_credits_used||0).toLocaleString();
+    // Cost estimate: ~$0.018/credit average
+    if(costEl) costEl.textContent='$'+((s.total_credits_used||0)*0.018).toFixed(2);
   }
+  // Always compute stats from live data after loading
+  refreshStats();
 
   // Rebuild final list from DB records
   if(dbRecords) finalList = dbRecords.filter(r=>r.in_final_list);
@@ -1159,7 +1152,7 @@ async function addToFinal(){
   const recs=currentData.filter(r=>selectedIds.has(r.id));
   const newRecs=recs.filter(r=>!finalList.find(x=>x.id===r.id));
   newRecs.forEach(r=>{r.in_final_list=true; finalList.push(r);});
-  renderFinal();
+  renderFinal(); refreshStats();
   if(sbReady() && newRecs.length){
     for(const r of newRecs){ await db_updateRecord(r.id,{in_final_list:true}); }
   }
@@ -1182,7 +1175,7 @@ async function bulkDelete(){
   selectedIds.clear();
   document.getElementById('selAll').checked=false;
   document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
-  updateActBar(); applyFilters(); renderFinal(); renderCats();
+  updateActBar(); applyFilters(); renderFinal(); renderCats(); refreshStats();
   if(sbReady()){
     const ok=await db_softDelete(ids);
     if(ok) showToast(`${n} record${n>1?'s':''} deleted`,'red');
@@ -1248,10 +1241,9 @@ function simEnrich(){
       document.getElementById('ephone-'+i).textContent='✓';
       document.getElementById('ephone-'+i).style.color='var(--green)';
       document.getElementById('estat-'+i).innerHTML='<span style="color:var(--green)">✓ done</span>';
-      document.getElementById('creditsUsed').textContent=(2140+(i+1)*45).toLocaleString();
     },i*900+1400);
   });
-  setTimeout(()=>{btn.textContent='✓ Done';enrichRunning=false;document.getElementById('enrichedRec').textContent='317';},ENRICH_Q.length*900+1500);
+  setTimeout(()=>{ btn.textContent='✓ Done'; btn.disabled=false; enrichRunning=false; refreshStats(); }, ENRICH_Q.length*900+1500);
 }
 
 // ── WEBSITE VERIFIER ──────────────────────────────────────────────────────
@@ -1440,7 +1432,7 @@ function renderFinal(){
 }
 async function removeFromFinal(id){
   finalList=finalList.filter(x=>x.id!==id);
-  renderFinal();
+  renderFinal(); refreshStats();
   if(sbReady()) await db_updateRecord(id,{in_final_list:false});
   showToast('Removed from Finalized List','amber');
 }
@@ -2018,8 +2010,7 @@ async function confirmImport(){
       const freshB=await db_loadBatches();
       if(fresh){currentData=fresh;}
       if(freshB){BATCHES.length=0;BATCHES.push(...freshB);}
-      renderTable(currentData);renderBatches();renderCats();
-      document.getElementById('totalRec').textContent=currentData.length.toLocaleString();
+      renderTable(currentData);renderBatches();renderCats();refreshStats();
       showToast(`✓ ${tagged.length.toLocaleString()} records imported`,'green');
     } else {
       showToast('Upload failed — check Supabase connection','red');
