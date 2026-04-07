@@ -860,6 +860,8 @@ async function db_insertRecords(records){
     type:r.type||null, sector:r.sector||null, aum:r.aum||null,
     min_check:r.check||r.min_check||null,
     email:r.email||null, phone:r.phone||null, website:r.website||null,
+    linkedin_url:r.linkedin_url||null,
+    notes:(r.notes||(r.location?'Location: '+r.location:null)||null),
     enriched:r.enriched||'none', score:r.score||0,
     site_status:r.site_status||'unverified',
     batch_id:r.batch||r.batch_id||'default',
@@ -1716,6 +1718,7 @@ const DB_FIELDS = [
   {key:'min_check', label:'Min Check / Ticket', aliases:['checksize','mincheck','minimumcheck','dealsize','minticket','ticketsize','mininvestment','minimuminvestment','loansize','loansizerange']},
   {key:'linkedin_url', label:'LinkedIn',    aliases:['linkedin','linkedinurl','linkedinprofile','li']},
   {key:'notes',     label:'Notes',          aliases:['notes','note','comments','description','tags','lendingcapabilities','underwritingcriteria','criteria']},
+  {key:'location',  label:'Location / City', aliases:['location','city','state','country','region','geography','hq','headquarters','address','officelocations','basedout','basedoutof','cityst','office']},
   {key:'_skip',     label:'— Skip column —', aliases:[]},
 ];
 
@@ -1826,7 +1829,7 @@ function showParseError(msg){
 }
 
 function showImport(){
-  _csvRaw='';_csvHeaders=[];_csvRows=[];_csvMapping={};_parsedRecords=[];
+  _csvRaw='';_csvHeaders=[];_csvRows=[];_csvMapping={};_parsedRecords=[];_customFields={};
   document.getElementById('batchName').value='';
   document.getElementById('csvFileLabel').textContent='No file selected — any CSV format accepted';
   const s=document.getElementById('csvParseStatus');if(s)s.style.display='none';
@@ -1862,8 +1865,11 @@ function goToStep3(){
   document.getElementById('importModalTitle').textContent='Import Batch — Step 3: Preview & Confirm';
 }
 
+function buildFieldOptions(selectedKey){
+  return DB_FIELDS.map(f=>`<option value="${f.key}"${selectedKey===f.key?' selected':''}>${f.label}</option>`).join('');
+}
+
 function renderMappingRows(){
-  const fieldOpts=DB_FIELDS.map(f=>`<option value="${f.key}">${f.label}</option>`).join('');
   const rows=document.getElementById('mappingRows');
   rows.innerHTML=_csvHeaders.map((h,i)=>{
     const mapped=_csvMapping[i]||'_skip';
@@ -1875,22 +1881,66 @@ function renderMappingRows(){
         <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${sample.substring(0,50)||'(empty)'}</span>
       </div>
       <div style="display:flex;align-items:center;justify-content:center;font-size:14px;color:${isMatched?'var(--green)':'var(--text3)'}">→</div>
-      <div style="padding:6px 10px;display:flex;align-items:center;${isMatched?'background:rgba(34,197,94,0.04)':''}">
-        <select onchange="updateMapping(${i},this.value)" style="width:100%;background:var(--bg3);border:1px solid ${isMatched?'rgba(34,197,94,0.3)':'var(--border2)'};border-radius:6px;padding:6px 8px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;">
-          ${DB_FIELDS.map(f=>`<option value="${f.key}"${mapped===f.key?' selected':''}>${f.label}</option>`).join('')}
+      <div style="padding:6px 10px;display:flex;align-items:center;gap:6px;${isMatched?'background:rgba(34,197,94,0.04)':''}">
+        <select onchange="updateMapping(${i},this.value)" id="mapsel-${i}" style="flex:1;background:var(--bg3);border:1px solid ${isMatched?'rgba(34,197,94,0.3)':'var(--border2)'};border-radius:6px;padding:6px 8px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;">
+          ${buildFieldOptions(mapped)}
         </select>
       </div>
     </div>`;
-  }).join('');
+  }).join('')
+  // Add custom field creator row at bottom
+  + `<div style="padding:10px 14px;border-top:1px solid var(--border);background:rgba(79,142,247,0.04);">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Don't see a matching field? Create a custom one — it will be stored in Notes:</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input id="customFieldName" class="fi" placeholder="Custom field name (e.g. Fund Focus, Strategy, Vintage Year)" style="flex:1;font-size:12px;"/>
+      <select id="customFieldColIdx" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;">
+        <option value="">Select CSV column…</option>
+        ${_csvHeaders.map((h,i)=>`<option value="${i}">${h}</option>`).join('')}
+      </select>
+      <button class="btn sm primary" onclick="addCustomField()">+ Add</button>
+    </div>
+    <div id="customFieldList" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+  </div>`;
 }
+
+// Custom fields — stored as extra_col_N keys, merged into notes on import
+let _customFields = {}; // { colIdx: label }
+
+function addCustomField(){
+  const label = document.getElementById('customFieldName').value.trim();
+  const colIdx = document.getElementById('customFieldColIdx').value;
+  if(!label){ showToast('Enter a field name first','amber'); return; }
+  if(colIdx===''){ showToast('Select which CSV column to map it to','amber'); return; }
+  _customFields[parseInt(colIdx)] = label;
+  document.getElementById('customFieldName').value='';
+  document.getElementById('customFieldColIdx').value='';
+  renderCustomFieldList();
+  showToast(`Custom field "${label}" added`,'green');
+}
+
+function renderCustomFieldList(){
+  const el=document.getElementById('customFieldList');
+  if(!el) return;
+  el.innerHTML=Object.entries(_customFields).map(([idx,label])=>`
+    <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.25);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--accent);">
+      <span>${_csvHeaders[idx]} → <strong>${label}</strong></span>
+      <button onclick="removeCustomField(${idx})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;line-height:1;padding:0 0 0 4px;">✕</button>
+    </div>`).join('');
+}
+
+function removeCustomField(idx){
+  delete _customFields[idx];
+  renderCustomFieldList();
+}
+
 function updateMapping(colIdx, fieldKey){
-  // Remove any existing mapping to this field (one field = one column)
   for(const k in _csvMapping){ if(_csvMapping[k]===fieldKey&&parseInt(k)!==colIdx) delete _csvMapping[k]; }
   if(fieldKey==='_skip') delete _csvMapping[colIdx];
   else _csvMapping[colIdx]=fieldKey;
   renderMappingRows();
+  renderCustomFieldList();
 }
-function autoMapAll(){ _csvMapping=autoMap(_csvHeaders); renderMappingRows(); }
+function autoMapAll(){ _customFields={}; _csvMapping=autoMap(_csvHeaders); renderMappingRows(); }
 
 function buildPreview(){
   // Build parsed records from mapping
@@ -1915,6 +1965,15 @@ function buildPreview(){
     if(!rec.name&&!rec.firm) return null;
     if(!rec.name) rec.name='—';
     if(!rec.firm) rec.firm=rec.name;
+    // Merge custom fields into notes
+    const customParts=[];
+    for(const [idx,label] of Object.entries(_customFields)){
+      const v=(row[parseInt(idx)]||'').trim();
+      if(v) customParts.push(label+': '+v);
+    }
+    if(customParts.length){
+      rec.notes=(rec.notes?rec.notes+' | ':'')+customParts.join(' | ');
+    }
     // Auto-set enrichment
     if(rec.email&&rec.phone) rec.enriched='full';
     else if(rec.email||rec.phone) rec.enriched='partial';
